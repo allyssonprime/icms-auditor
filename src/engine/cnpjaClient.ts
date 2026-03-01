@@ -8,12 +8,63 @@ const API_BASE = 'https://open.cnpja.com/office';
 const MIN_INTERVAL_MS = 12500; // 12.5s = ~4.8 req/min (margem de seguranca)
 const MAX_RETRIES = 2;
 
-// CNAEs de industria (divisoes 10-33 da CNAE 2.0 = Industria de Transformacao)
-function isIndustrialCnae(cnae: string): boolean {
+// === DETECCAO CNAE INDUSTRIAL ===
+// 1) Por codigo: divisoes 10-33 da CNAE 2.0 = Industria de Transformacao
+//    Tambem 05-09 = Industria Extrativa (mineracao, etc.)
+// 2) Por descricao: palavras-chave que indicam atividade industrial
+
+const INDUSTRIAL_KEYWORDS = [
+  'fabricacao', 'fabricação',
+  'industria', 'indústria',
+  'industrial', 'industriais',
+  'manufatura',
+  'metalurgia', 'metalurgica', 'metalúrgica',
+  'siderurgia', 'siderurgica', 'siderúrgica',
+  'fundição', 'fundicao',
+  'forjaria',
+  'usinagem',
+  'estamparia',
+  'laminacao', 'laminação',
+  'trefilacao', 'trefilação',
+  'extrusao', 'extrusão',
+  'moldagem',
+  'montagem de',
+  'producao de', 'produção de',
+  'beneficiamento de',
+  'transformacao de', 'transformação de',
+  'processamento de',
+  'refino de',
+  'destilacao', 'destilação',
+  'curtimento',
+  'fiacao', 'fiação',
+  'tecelagem',
+  'confeccao de', 'confecção de',
+  'serraria',
+  'torrefacao', 'torrefação',
+  'moagem',
+  'frigorific',
+  'abate de',
+];
+
+function isIndustrialByCode(cnae: string): boolean {
   const code = cnae.replace(/[.\-/]/g, '');
   if (code.length < 2) return false;
   const divisao = parseInt(code.slice(0, 2), 10);
-  return divisao >= 10 && divisao <= 33;
+  // Divisoes 05-09: Industria extrativa
+  // Divisoes 10-33: Industria de transformacao
+  return (divisao >= 5 && divisao <= 9) || (divisao >= 10 && divisao <= 33);
+}
+
+function isIndustrialByDescription(desc: string): boolean {
+  if (!desc) return false;
+  const lower = desc.toLowerCase();
+  return INDUSTRIAL_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+function checkIndustrial(allCnaes: string[], allDescriptions: string[]): boolean {
+  if (allCnaes.some(isIndustrialByCode)) return true;
+  if (allDescriptions.some(isIndustrialByDescription)) return true;
+  return false;
 }
 
 // Cache local em memoria
@@ -90,15 +141,39 @@ async function fetchCnpj(cnpj: string): Promise<CnpjInfo | null> {
 function parseResponse(cnpj: string, data: Record<string, unknown>): CnpjInfo {
   const company = (data.company ?? data) as Record<string, unknown>;
   const simples = (company.simples ?? {}) as Record<string, unknown>;
-  const primaryActivity = (data.primaryActivity ?? data.primary_activity ?? {}) as Record<string, unknown>;
-  const secondaryActivities = (data.secondaryActivities ?? data.secondary_activities ?? []) as Array<Record<string, unknown>>;
 
-  const cnaePrincipal = String(primaryActivity.code ?? primaryActivity.id ?? '');
-  const cnaeDescricao = String(primaryActivity.description ?? primaryActivity.text ?? '');
-  const cnaesSecundarios = secondaryActivities.map(a => String(a.code ?? a.id ?? ''));
+  // CNPJa Open API usa: mainActivity.id, mainActivity.text
+  //                       sideActivities[].id, sideActivities[].text
+  // Fallbacks para outros formatos possiveis da API
+  const primaryActivity = (
+    data.mainActivity ??
+    data.primaryActivity ??
+    data.primary_activity ??
+    {}
+  ) as Record<string, unknown>;
+
+  const secondaryActivities = (
+    data.sideActivities ??
+    data.secondaryActivities ??
+    data.secondary_activities ??
+    []
+  ) as Array<Record<string, unknown>>;
+
+  const cnaePrincipal = String(primaryActivity.id ?? primaryActivity.code ?? '');
+  const cnaeDescricao = String(primaryActivity.text ?? primaryActivity.description ?? '');
+
+  const cnaesSecundarios: string[] = [];
+  const descSecundarias: string[] = [];
+  for (const act of secondaryActivities) {
+    const code = String(act.id ?? act.code ?? '');
+    const desc = String(act.text ?? act.description ?? '');
+    if (code) cnaesSecundarios.push(code);
+    if (desc) descSecundarias.push(desc);
+  }
 
   const allCnaes = [cnaePrincipal, ...cnaesSecundarios].filter(Boolean);
-  const isIndustrial = allCnaes.some(isIndustrialCnae);
+  const allDescs = [cnaeDescricao, ...descSecundarias].filter(Boolean);
+  const isIndustrial = checkIndustrial(allCnaes, allDescs);
 
   return {
     cnpj,
@@ -136,3 +211,6 @@ export function getCacheSize(): number {
 export function getQueueSize(): number {
   return pendingQueue.length;
 }
+
+// Exportar para testes
+export { isIndustrialByCode, isIndustrialByDescription, checkIndustrial };

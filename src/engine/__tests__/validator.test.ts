@@ -39,15 +39,29 @@ describe('validarNfe', () => {
     expect(result.itensValidados[0]!.resultados.some(r => r.regra === 'AL01' && r.status === 'ERRO')).toBe(true);
   });
 
-  it('should flag wrong CST', () => {
+  it('should alert when CST origin is not 1 or 6 (nacional)', () => {
     const nfe = makeNfe({
       dest: makeDest({ uf: 'PR', indIEDest: '1' }),
-      itens: [makeItem({ ncm: '84713019', cfop: '6101', cst: '051', pICMS: 4 })],
+      itens: [makeItem({ ncm: '84713019', cfop: '6101', cstOrig: '0', cst: '090', pICMS: 4 })],
     });
     const config = makeConfig();
     const result = validarNfe(nfe, config);
 
-    expect(result.itensValidados[0]!.resultados.some(r => r.regra === 'CST01' && r.status === 'ERRO')).toBe(true);
+    expect(result.itensValidados[0]!.resultados.some(r => r.regra === 'CST02' && r.status === 'ALERTA')).toBe(true);
+  });
+
+  it('should accept CST with origin 1 and any trib (00, 51, 90)', () => {
+    for (const cst of ['100', '151', '190']) {
+      const nfe = makeNfe({
+        dest: makeDest({ uf: 'PR', indIEDest: '1' }),
+        itens: [makeItem({ ncm: '84713019', cfop: '6101', cstOrig: '1', cst, pICMS: 4 })],
+      });
+      const config = makeConfig();
+      const result = validarNfe(nfe, config);
+
+      const cstResults = result.itensValidados[0]!.resultados.filter(r => r.regra.startsWith('CST'));
+      expect(cstResults.every(r => r.status === 'OK')).toBe(true);
+    }
   });
 
   it('should validate internal SC PF as B7', () => {
