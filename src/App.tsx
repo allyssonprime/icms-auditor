@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { NfeValidation, ActiveFilters, StatusType } from './types/validation.ts';
+import type { NfeValidation, ActiveFilters, StatusType, CnpjInfo } from './types/validation.ts';
 import type { AppConfig } from './types/config.ts';
 import { parseNfe } from './engine/parser.ts';
 import { validarNfe } from './engine/validator.ts';
@@ -66,9 +66,15 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [filters, setFilters] = useState<ActiveFilters>(emptyFilters);
+  const [cnpjInfoMap, setCnpjInfoMap] = useState<Map<string, CnpjInfo>>(new Map());
 
+  // Save config and re-validate all NF-es when config changes
   useEffect(() => {
     saveConfig(config);
+    setResults(prev => {
+      if (prev.length === 0) return prev;
+      return prev.map(r => validarNfe(r.nfe, config));
+    });
   }, [config]);
 
   const handleFiles = useCallback(
@@ -105,16 +111,36 @@ export default function App() {
     setResults([]);
     setParseErrors([]);
     setFilters(emptyFilters());
+    setCnpjInfoMap(new Map());
   };
 
   const handleSaveConfig = (newConfig: AppConfig) => {
     setConfig(newConfig);
     setShowConfig(false);
-    if (results.length > 0) {
-      const revalidated = results.map(r => validarNfe(r.nfe, newConfig));
-      setResults(revalidated);
-    }
   };
+
+  const handleCnpjInfoLoaded = useCallback((info: CnpjInfo) => {
+    setCnpjInfoMap(prev => new Map(prev).set(info.cnpj, info));
+
+    const needsSN = info.simplesOptante === true;
+    const needsIndustrial = info.isIndustrial;
+
+    if (needsSN || needsIndustrial) {
+      setConfig(prev => {
+        let changed = false;
+        const next = { ...prev };
+        if (needsSN && !prev.listaSN.includes(info.cnpj)) {
+          next.listaSN = [...prev.listaSN, info.cnpj];
+          changed = true;
+        }
+        if (needsIndustrial && !prev.listaIndustriais.includes(info.cnpj)) {
+          next.listaIndustriais = [...prev.listaIndustriais, info.cnpj];
+          changed = true;
+        }
+        return changed ? next : prev;
+      });
+    }
+  }, []);
 
   const handleToggleFilter = useCallback((type: keyof ActiveFilters, value: string | number) => {
     setFilters(prev => {
@@ -226,9 +252,9 @@ export default function App() {
               onQuickGroup={handleQuickGroup}
             />
 
-            <CnpjLookupPanel results={results} />
+            <CnpjLookupPanel results={results} onCnpjInfoLoaded={handleCnpjInfoLoaded} />
 
-            <NfeListView results={results} filters={filters} />
+            <NfeListView results={results} filters={filters} cnpjInfoMap={cnpjInfoMap} />
           </>
         )}
       </main>

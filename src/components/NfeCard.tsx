@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import type { NfeValidation } from '../types/validation.ts';
+import type { NfeValidation, CnpjInfo } from '../types/validation.ts';
 import { ItemDetail } from './ItemDetail.tsx';
 import { formatCNPJ, formatCurrency } from '../utils/formatters.ts';
 
 interface NfeCardProps {
   validation: NfeValidation;
+  cnpjInfoMap?: Map<string, CnpjInfo>;
 }
 
 const borderColors: Record<string, string> = {
@@ -19,13 +20,15 @@ const dotColors: Record<string, string> = {
   ERRO: 'bg-red-500',
 };
 
-export function NfeCard({ validation }: NfeCardProps) {
+export function NfeCard({ validation, cnpjInfoMap }: NfeCardProps) {
   const [expanded, setExpanded] = useState(false);
   const { nfe, itensValidados, statusFinal } = validation;
 
   const countOk = itensValidados.filter(i => i.statusFinal === 'OK').length;
   const countAlerta = itensValidados.filter(i => i.statusFinal === 'ALERTA').length;
   const countErro = itensValidados.filter(i => i.statusFinal === 'ERRO').length;
+
+  const destCnpjInfo = nfe.dest.cnpj ? cnpjInfoMap?.get(nfe.dest.cnpj.replace(/\D/g, '')) : undefined;
 
   return (
     <div
@@ -44,6 +47,12 @@ export function NfeCard({ validation }: NfeCardProps) {
             <span className="text-sm text-gray-500">
               {nfe.dest.nome} ({nfe.dest.uf})
             </span>
+            {destCnpjInfo?.simplesOptante === true && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium">SN</span>
+            )}
+            {destCnpjInfo?.isIndustrial && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">Industrial</span>
+            )}
           </div>
           <div className="text-xs text-gray-500 mt-0.5">
             {itensValidados.length} {itensValidados.length === 1 ? 'item' : 'itens'}:
@@ -71,6 +80,16 @@ export function NfeCard({ validation }: NfeCardProps) {
               <span className="font-mono">
                 {nfe.dest.cnpj ? formatCNPJ(nfe.dest.cnpj) : nfe.dest.cpf || '-'}
               </span>
+              {destCnpjInfo?.simplesOptante === true && (
+                <span className="ml-1.5 px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium">
+                  Simples Nacional
+                </span>
+              )}
+              {destCnpjInfo?.isIndustrial && (
+                <span className="ml-1.5 px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
+                  Industrial ({destCnpjInfo.cnaeDescricao || destCnpjInfo.cnaePrincipal})
+                </span>
+              )}
             </div>
             <div>
               <span className="font-medium text-gray-700">Chave:</span>{' '}

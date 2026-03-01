@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import type { NfeValidation, ActiveFilters } from '../types/validation.ts';
+import type { NfeValidation, ActiveFilters, CnpjInfo } from '../types/validation.ts';
 import { NfeCard } from './NfeCard.tsx';
 import { formatCNPJ, formatCurrency } from '../utils/formatters.ts';
 
 interface NfeListViewProps {
   results: NfeValidation[];
   filters: ActiveFilters;
+  cnpjInfoMap?: Map<string, CnpjInfo>;
 }
 
 const statusBadge: Record<string, string> = {
@@ -41,7 +42,7 @@ function matchesFilters(v: NfeValidation, filters: ActiveFilters): boolean {
   return true;
 }
 
-export function NfeListView({ results, filters }: NfeListViewProps) {
+export function NfeListView({ results, filters, cnpjInfoMap }: NfeListViewProps) {
   const [view, setView] = useState<'table' | 'cards'>('table');
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
 
@@ -106,8 +107,23 @@ export function NfeListView({ results, filters }: NfeListViewProps) {
                       </div>
                     </td>
                     <td className="px-3 py-2">
-                      <div className="truncate max-w-[150px]" title={v.nfe.dest.nome}>
-                        {v.nfe.dest.cnpj ? formatCNPJ(v.nfe.dest.cnpj) : v.nfe.dest.cpf || '-'}
+                      <div className="flex items-center gap-1">
+                        <span className="truncate max-w-[130px]" title={v.nfe.dest.nome}>
+                          {v.nfe.dest.cnpj ? formatCNPJ(v.nfe.dest.cnpj) : v.nfe.dest.cpf || '-'}
+                        </span>
+                        {(() => {
+                          const info = v.nfe.dest.cnpj ? cnpjInfoMap?.get(v.nfe.dest.cnpj.replace(/\D/g, '')) : undefined;
+                          return (
+                            <>
+                              {info?.simplesOptante === true && (
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-orange-100 text-orange-700 font-medium shrink-0">SN</span>
+                              )}
+                              {info?.isIndustrial && (
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-blue-100 text-blue-700 font-medium shrink-0">Ind</span>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </td>
                     <td className="px-3 py-2">{v.nfe.dest.uf}</td>
@@ -126,7 +142,7 @@ export function NfeListView({ results, filters }: NfeListViewProps) {
           </div>
 
           {selectedIdx !== null && filtered[selectedIdx] && (
-            <NfeCard validation={filtered[selectedIdx]} />
+            <NfeCard validation={filtered[selectedIdx]} cnpjInfoMap={cnpjInfoMap} />
           )}
         </>
       )}
@@ -134,7 +150,7 @@ export function NfeListView({ results, filters }: NfeListViewProps) {
       {view === 'cards' && (
         <div>
           {filtered.map((r, idx) => (
-            <NfeCard key={idx} validation={r} />
+            <NfeCard key={idx} validation={r} cnpjInfoMap={cnpjInfoMap} />
           ))}
         </div>
       )}
