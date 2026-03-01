@@ -18,9 +18,28 @@ function textToList(text: string): string[] {
     .filter(s => s.length > 0);
 }
 
+function textToNcmList(text: string): string[] {
+  return text
+    .split('\n')
+    .map(s => s.replace(/\D/g, ''))
+    .filter(s => s.length >= 4);
+}
+
+function ncmListToText(list: string[]): string {
+  return list
+    .map(ncm => {
+      const d = ncm.replace(/\D/g, '');
+      if (d.length === 8) return `${d.slice(0, 4)}.${d.slice(4, 6)}.${d.slice(6)}`;
+      if (d.length === 6) return `${d.slice(0, 4)}.${d.slice(4)}`;
+      return d;
+    })
+    .join('\n');
+}
+
 export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
+  const [decreto2128, setDecreto2128] = useState(ncmListToText(config.decreto2128));
   const [listaSN, setListaSN] = useState(listToText(config.listaSN));
-  const [listaCamex, setListaCamex] = useState(listToText(config.listaCamex));
+  const [listaCamex, setListaCamex] = useState(ncmListToText(config.listaCamex));
   const [listaIndustriais, setListaIndustriais] = useState(listToText(config.listaIndustriais));
   const [listaCD, setListaCD] = useState(listToText(config.listaCD));
   const [listaVedacao25a, setListaVedacao25a] = useState(listToText(config.listaVedacao25a));
@@ -29,8 +48,9 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
   const handleSave = () => {
     onSave({
       ...config,
+      decreto2128: textToNcmList(decreto2128),
       listaSN: textToList(listaSN),
-      listaCamex: textToList(listaCamex),
+      listaCamex: textToNcmList(listaCamex),
       listaIndustriais: textToList(listaIndustriais),
       listaCD: textToList(listaCD),
       listaVedacao25a: textToList(listaVedacao25a),
@@ -52,6 +72,13 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
         </div>
 
         <div className="p-4 space-y-5">
+          <ConfigTextarea
+            label="Decreto 2.128/SC — NCMs vedadas (4, 6 ou 8 digitos — um por linha)"
+            value={decreto2128}
+            onChange={setDecreto2128}
+            placeholder="7005&#10;2207.10&#10;2710.12.30"
+            hint={`${textToNcmList(decreto2128).length} NCMs cadastradas. Aceita prefixos (4 ou 6 digitos) ou NCM completa (8 digitos).`}
+          />
           <ConfigTextarea
             label="Lista CAMEX (NCMs sem similar — um por linha)"
             value={listaCamex}
@@ -114,11 +141,13 @@ function ConfigTextarea({
   value,
   onChange,
   placeholder,
+  hint,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
+  hint?: string;
 }) {
   return (
     <div>
@@ -132,6 +161,9 @@ function ConfigTextarea({
         rows={4}
         className="w-full border border-gray-300 rounded-lg p-2 text-sm font-mono focus:ring-2 focus:ring-blue-300 focus:border-blue-400 outline-none"
       />
+      {hint && (
+        <p className="mt-1 text-xs text-gray-500">{hint}</p>
+      )}
     </div>
   );
 }
