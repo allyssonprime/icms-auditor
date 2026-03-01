@@ -13,6 +13,7 @@ import { ConfigPanel } from './components/ConfigPanel.tsx';
 import { GroupingPanel } from './components/GroupingPanel.tsx';
 import { NfeListView } from './components/NfeListView.tsx';
 import { CnpjLookupPanel } from './components/CnpjLookupPanel.tsx';
+import { CenarioLegend } from './components/CenarioLegend.tsx';
 
 const STORAGE_KEY = 'prime-nfe-auditor-config';
 
@@ -215,6 +216,8 @@ export default function App() {
 
         {results.length > 0 && (
           <>
+            <CenarioLegend />
+
             <GroupingPanel
               results={results}
               filters={filters}

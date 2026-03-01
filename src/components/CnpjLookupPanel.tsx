@@ -90,7 +90,8 @@ export function CnpjLookupPanel({ results, onCnpjInfoLoaded }: CnpjLookupPanelPr
                 <th className="text-left px-2 py-1.5 font-medium text-gray-600">CNPJ</th>
                 <th className="text-left px-2 py-1.5 font-medium text-gray-600">Razao Social</th>
                 <th className="text-left px-2 py-1.5 font-medium text-gray-600">Simples</th>
-                <th className="text-left px-2 py-1.5 font-medium text-gray-600">CNAE Princ.</th>
+                <th className="text-left px-2 py-1.5 font-medium text-gray-600">CNAE Principal</th>
+                <th className="text-left px-2 py-1.5 font-medium text-gray-600">Descricao CNAE</th>
                 <th className="text-left px-2 py-1.5 font-medium text-gray-600">Industrial</th>
               </tr>
             </thead>
@@ -99,9 +100,9 @@ export function CnpjLookupPanel({ results, onCnpjInfoLoaded }: CnpjLookupPanelPr
                 <tr key={cnpj} className="border-t border-gray-100">
                   <td className="px-2 py-1.5 font-mono">{formatCNPJ(cnpj)}</td>
                   {data === 'loading' ? (
-                    <td colSpan={4} className="px-2 py-1.5 text-gray-400">Consultando...</td>
+                    <td colSpan={5} className="px-2 py-1.5 text-gray-400">Consultando...</td>
                   ) : data === 'error' ? (
-                    <td colSpan={4} className="px-2 py-1.5 text-red-500">
+                    <td colSpan={5} className="px-2 py-1.5 text-red-500">
                       Erro na consulta
                       <button
                         onClick={() => lookupSingle(cnpj)}
@@ -124,8 +125,11 @@ export function CnpjLookupPanel({ results, onCnpjInfoLoaded }: CnpjLookupPanelPr
                         )}
                         {data.simplesOptante === null && '-'}
                       </td>
-                      <td className="px-2 py-1.5 font-mono" title={data.cnaeDescricao}>
+                      <td className="px-2 py-1.5 font-mono">
                         {data.cnaePrincipal || '-'}
+                      </td>
+                      <td className="px-2 py-1.5 truncate max-w-[250px]" title={data.cnaeDescricao}>
+                        {data.cnaeDescricao || '-'}
                       </td>
                       <td className="px-2 py-1.5">
                         {data.isIndustrial ? (
