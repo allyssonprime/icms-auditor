@@ -34,8 +34,20 @@ describe('validarCFOP', () => {
     expect(result.status).toBe('OK');
   });
 
-  it('should alert for unusual CFOP (6949)', () => {
+  it('should accept conta e ordem CFOP (6949) as OK', () => {
     const item = makeItem({ cfop: '6949' });
+    const result = validarCFOP(item, CENARIOS['A1']!);
+    expect(result.status).toBe('OK');
+  });
+
+  it('should accept venda CFOP (5102) even for interstate via fallback', () => {
+    const item = makeItem({ cfop: '5102' });
+    const result = validarCFOP(item, CENARIOS['A1']!);
+    expect(result.status).toBe('OK');
+  });
+
+  it('should alert for truly unusual CFOP', () => {
+    const item = makeItem({ cfop: '6999' });
     const result = validarCFOP(item, CENARIOS['A1']!);
     expect(result.status).toBe('ALERTA');
   });

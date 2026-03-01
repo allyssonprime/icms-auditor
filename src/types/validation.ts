@@ -21,14 +21,33 @@ export interface NfeValidation {
   itensValidados: ItemValidation[];
   statusFinal: StatusType;
   totalBC: number;
+  totalICMSDestacado: number;
+  totalICMSRecolher: number;
   totalFundos: number;
+  totalRecolherComFundos: number;
 }
 
-export interface ProcessingSummary {
-  total: number;
-  ok: number;
-  alertas: number;
-  erros: number;
+export interface CnpjInfo {
+  cnpj: string;
+  razaoSocial: string;
+  simplesOptante: boolean | null;
+  cnaePrincipal: string;
+  cnaeDescricao: string;
+  cnaesSecundarios: string[];
+  isIndustrial: boolean;
+}
+
+export type ActiveFilters = {
+  aliquota: Set<number>;
+  cst: Set<string>;
+  cfop: Set<string>;
+  cenario: Set<string>;
+  status: Set<StatusType>;
+};
+
+export interface GroupedData {
+  label: string;
+  count: number;
   totalBC: number;
-  fundosEstimados: number;
+  totalICMS: number;
 }

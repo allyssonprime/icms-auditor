@@ -110,6 +110,12 @@ export function parseNfe(xmlString: string, fileName: string = ''): ParseResult 
     const natOp = ide ? getText(ide, 'natOp') : '';
     const tpNF = ide ? getText(ide, 'tpNF') : '1';
 
+    const emit = doc.getElementsByTagName('emit')[0];
+    const emitCnpj = emit ? getText(emit, 'CNPJ') : '';
+    const emitNome = emit ? getText(emit, 'xNome') : '';
+    const enderEmit = emit?.getElementsByTagName('enderEmit')[0];
+    const emitUF = enderEmit ? getText(enderEmit, 'UF') : 'SC';
+
     const dest = parseDestinatario(doc);
 
     const infAdic = doc.getElementsByTagName('infAdic')[0];
@@ -133,6 +139,9 @@ export function parseNfe(xmlString: string, fileName: string = ''): ParseResult 
         serie,
         natOp,
         tpNF,
+        emitCnpj,
+        emitNome,
+        emitUF,
         dest,
         itens,
         infCpl,

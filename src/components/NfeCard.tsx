@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { NfeValidation } from '../types/validation.ts';
 import { ItemDetail } from './ItemDetail.tsx';
+import { formatCNPJ, formatCurrency } from '../utils/formatters.ts';
 
 interface NfeCardProps {
   validation: NfeValidation;
@@ -58,6 +59,37 @@ export function NfeCard({ validation }: NfeCardProps) {
 
       {expanded && (
         <div className="px-4 pb-4">
+          <div className="bg-gray-50 rounded p-3 mb-3 text-xs text-gray-600 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <span className="font-medium text-gray-700">Emitente:</span>{' '}
+              {nfe.emitNome || '-'}{' '}
+              <span className="font-mono">{nfe.emitCnpj ? formatCNPJ(nfe.emitCnpj) : '-'}</span>
+            </div>
+            <div>
+              <span className="font-medium text-gray-700">Destinatario:</span>{' '}
+              {nfe.dest.nome}{' '}
+              <span className="font-mono">
+                {nfe.dest.cnpj ? formatCNPJ(nfe.dest.cnpj) : nfe.dest.cpf || '-'}
+              </span>
+            </div>
+            <div>
+              <span className="font-medium text-gray-700">Chave:</span>{' '}
+              <span className="font-mono">{nfe.chaveAcesso}</span>
+            </div>
+            <div>
+              <span className="font-medium text-gray-700">Nat. Op.:</span>{' '}
+              {nfe.natOp}
+            </div>
+            <div>
+              <span className="font-medium text-gray-700">Total BC:</span>{' '}
+              {formatCurrency(validation.totalBC)}
+            </div>
+            <div>
+              <span className="font-medium text-gray-700">ICMS Dest.:</span>{' '}
+              {formatCurrency(validation.totalICMSDestacado)}
+            </div>
+          </div>
+
           {itensValidados.map((iv, idx) => (
             <ItemDetail key={idx} iv={iv} />
           ))}

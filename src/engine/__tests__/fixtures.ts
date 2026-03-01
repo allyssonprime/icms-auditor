@@ -10,8 +10,8 @@ export function makeItem(overrides: Partial<ItemData> = {}): ItemData {
     descricao: 'Produto teste',
     ncm: '84713019',
     cfop: '6101',
-    cstOrig: '0',
-    cst: '090',
+    cstOrig: '1',
+    cst: '190',
     pICMS: 4,
     vBC: 1000,
     vICMS: 40,
@@ -40,6 +40,9 @@ export function makeNfe(overrides: Partial<NfeData> = {}): NfeData {
     serie: '1',
     natOp: 'Venda de mercadoria',
     tpNF: '1',
+    emitCnpj: '00000000000100',
+    emitNome: 'Emitente Teste Ltda',
+    emitUF: 'SC',
     dest: makeDest(),
     itens: [makeItem()],
     infCpl: '',
@@ -81,7 +84,7 @@ export function makeSampleXml(opts: {
   const {
     ncm = '84713019',
     cfop = '6101',
-    cstOrig = '0',
+    cstOrig = '1',
     cst = '90',
     pICMS = 4,
     vBC = 1000,
@@ -107,6 +110,13 @@ export function makeSampleXml(opts: {
         <natOp>Venda de mercadoria</natOp>
         <tpNF>1</tpNF>
       </ide>
+      <emit>
+        <CNPJ>00000000000100</CNPJ>
+        <xNome>Emitente Teste Ltda</xNome>
+        <enderEmit>
+          <UF>SC</UF>
+        </enderEmit>
+      </emit>
       <dest>
         ${destId}
         <xNome>Empresa Teste Ltda</xNome>

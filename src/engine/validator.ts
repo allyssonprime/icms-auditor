@@ -32,7 +32,7 @@ function validarItem(
 
   if (!bloqueado && cenario) {
     // Etapa 3: Validar alíquota
-    resultados.push(validarAliquota(item, cenario, nfe.dest));
+    resultados.push(validarAliquota(item, cenario, nfe.dest, config));
     // Etapa 4: Validar CST
     resultados.push(validarCST(item, cenario));
     // Etapa 5: Validar CFOP
@@ -40,14 +40,14 @@ function validarItem(
   } else if (!bloqueado && cenarioId === 'DEVOLUCAO') {
     resultados.push({
       status: 'ALERTA',
-      mensagem: 'Devolução detectada. Estornar CP apropriado (item 1.20). Fundos: creditar via DCIP 54.',
+      mensagem: 'Devolucao detectada. Estornar CP apropriado (item 1.20). Fundos: creditar via DCIP 54.',
       regra: 'I09',
       cenario: 'DEVOLUCAO',
     });
   } else if (!bloqueado) {
     resultados.push({
       status: 'ALERTA',
-      mensagem: 'Cenário não identificado. Verificar manualmente.',
+      mensagem: 'Cenario nao identificado. Verificar manualmente.',
       regra: 'C-UNK',
     });
   }
@@ -65,14 +65,34 @@ export function validarNfe(nfe: NfeData, config: AppConfig): NfeValidation {
   );
 
   const totalBC = itensValidados.reduce((s, iv) => s + iv.item.vBC, 0);
+  const totalICMSDestacado = itensValidados.reduce((s, iv) => s + iv.item.vICMS, 0);
 
-  // Fundos: 0,4% sobre BC integral (cenários com CP).
-  // B7 (PF), B9 (vedação), B12 (transf.) não têm fundos.
+  // ICMS a recolher = carga efetiva sobre BC
   const cenariosSemFundos = new Set(['B7', 'B9', 'B12', 'VEDADO', 'DEVOLUCAO', 'DESCONHECIDO']);
-  const totalFundos = itensValidados.reduce((s, iv) => {
-    if (cenariosSemFundos.has(iv.cenario)) return s;
-    return s + iv.item.vBC * 0.004;
-  }, 0);
 
-  return { nfe, itensValidados, statusFinal, totalBC, totalFundos };
+  let totalICMSRecolher = 0;
+  let totalFundos = 0;
+
+  for (const iv of itensValidados) {
+    const cenario = CENARIOS[iv.cenario];
+    if (cenario && cenario.cargaEfetiva > 0) {
+      totalICMSRecolher += iv.item.vBC * (cenario.cargaEfetiva / 100);
+    }
+    if (!cenariosSemFundos.has(iv.cenario)) {
+      totalFundos += iv.item.vBC * 0.004;
+    }
+  }
+
+  const totalRecolherComFundos = totalICMSRecolher + totalFundos;
+
+  return {
+    nfe,
+    itensValidados,
+    statusFinal,
+    totalBC,
+    totalICMSDestacado,
+    totalICMSRecolher,
+    totalFundos,
+    totalRecolherComFundos,
+  };
 }

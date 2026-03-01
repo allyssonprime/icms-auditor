@@ -13,8 +13,11 @@ export function exportToExcel(results: NfeValidation[]): void {
   // Aba 1: Resumo
   const resumoData = results.map(r => ({
     'NF-e': r.nfe.numero,
-    'Série': r.nfe.serie,
-    'Destinatário': r.nfe.dest.nome,
+    'Serie': r.nfe.serie,
+    'Emitente CNPJ': r.nfe.emitCnpj || '',
+    'Emitente': r.nfe.emitNome || '',
+    'Dest CNPJ/CPF': r.nfe.dest.cnpj || r.nfe.dest.cpf || '',
+    'Destinatario': r.nfe.dest.nome,
     'UF': r.nfe.dest.uf,
     'Qtd Itens': r.itensValidados.length,
     'OK': r.itensValidados.filter(i => i.statusFinal === 'OK').length,
@@ -22,7 +25,10 @@ export function exportToExcel(results: NfeValidation[]): void {
     'Erros': r.itensValidados.filter(i => i.statusFinal === 'ERRO').length,
     'Status': r.statusFinal,
     'Total BC': r.totalBC,
+    'ICMS Destacado': r.totalICMSDestacado,
+    'ICMS Recolher': r.totalICMSRecolher,
     'Fundos 0,4%': r.totalFundos,
+    'Total Recolher': r.totalRecolherComFundos,
   }));
   const wsResumo = XLSX.utils.json_to_sheet(resumoData);
   XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
@@ -35,16 +41,17 @@ export function exportToExcel(results: NfeValidation[]): void {
         'NF-e': r.nfe.numero,
         'Item': iv.item.nItem,
         'NCM': iv.item.ncm,
-        'Descrição': iv.item.descricao,
+        'Descricao': iv.item.descricao,
         'CFOP': iv.item.cfop,
         'CST': iv.item.cst,
-        'Alíquota NF': iv.item.pICMS,
-        'Alíq. Esperada': cenario ? cenario.aliquotasAceitas.join('/') : '-',
+        'CST Orig': iv.item.cstOrig,
+        'Aliquota NF': iv.item.pICMS,
+        'Aliq. Esperada': cenario ? cenario.aliquotasAceitas.join('/') : '-',
         'BC': iv.item.vBC,
         'ICMS': iv.item.vICMS,
-        'Cenário': iv.cenario,
+        'Cenario': iv.cenario,
         'Status': iv.statusFinal,
-        'Observações': iv.resultados
+        'Observacoes': iv.resultados
           .filter(r => r.status !== 'OK')
           .map(r => `[${r.regra}] ${r.mensagem}`)
           .join(' | '),
@@ -70,16 +77,19 @@ export function exportToExcel(results: NfeValidation[]): void {
   const wsRegras = XLSX.utils.json_to_sheet(regrasData);
   XLSX.utils.book_append_sheet(wb, wsRegras, 'Regras');
 
-  // Aba 4: Fundos
+  // Aba 4: Fundos e Totais
   const fundosData = results.map(r => ({
     'NF-e': r.nfe.numero,
-    'Destinatário': r.nfe.dest.nome,
+    'Destinatario': r.nfe.dest.nome,
     'UF': r.nfe.dest.uf,
     'Total BC': r.totalBC,
+    'ICMS Destacado': r.totalICMSDestacado,
+    'ICMS Recolher': r.totalICMSRecolher,
     'Fundos 0,4%': r.totalFundos,
+    'Total Recolher + Fundos': r.totalRecolherComFundos,
   }));
   const wsFundos = XLSX.utils.json_to_sheet(fundosData);
-  XLSX.utils.book_append_sheet(wb, wsFundos, 'Fundos');
+  XLSX.utils.book_append_sheet(wb, wsFundos, 'Fundos e Totais');
 
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   const blob = new Blob([buf], { type: 'application/octet-stream' });

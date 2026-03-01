@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { NfeValidation } from './types/validation.ts';
+import type { NfeValidation, ActiveFilters, StatusType } from './types/validation.ts';
 import type { AppConfig } from './types/config.ts';
 import { parseNfe } from './engine/parser.ts';
 import { validarNfe } from './engine/validator.ts';
@@ -8,9 +8,11 @@ import { COBRE_ACO_PREFIXES } from './data/cobreAco.ts';
 import { ALIQUOTAS_INTERNAS_VALIDAS } from './data/aliquotasInternas.ts';
 import { DropZone } from './components/DropZone.tsx';
 import { Dashboard } from './components/Dashboard.tsx';
-import { NfeCard } from './components/NfeCard.tsx';
 import { ExportButton } from './components/ExportButton.tsx';
 import { ConfigPanel } from './components/ConfigPanel.tsx';
+import { GroupingPanel } from './components/GroupingPanel.tsx';
+import { NfeListView } from './components/NfeListView.tsx';
+import { CnpjLookupPanel } from './components/CnpjLookupPanel.tsx';
 
 const STORAGE_KEY = 'prime-nfe-auditor-config';
 
@@ -41,6 +43,16 @@ function getDefaultConfig(): AppConfig {
   };
 }
 
+function emptyFilters(): ActiveFilters {
+  return {
+    aliquota: new Set<number>(),
+    cst: new Set<string>(),
+    cfop: new Set<string>(),
+    cenario: new Set<string>(),
+    status: new Set<StatusType>(),
+  };
+}
+
 interface ParseError {
   fileName: string;
   error: string;
@@ -52,6 +64,7 @@ export default function App() {
   const [parseErrors, setParseErrors] = useState<ParseError[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
+  const [filters, setFilters] = useState<ActiveFilters>(emptyFilters);
 
   useEffect(() => {
     saveConfig(config);
@@ -90,6 +103,7 @@ export default function App() {
   const handleClear = () => {
     setResults([]);
     setParseErrors([]);
+    setFilters(emptyFilters());
   };
 
   const handleSaveConfig = (newConfig: AppConfig) => {
@@ -101,10 +115,58 @@ export default function App() {
     }
   };
 
+  const handleToggleFilter = useCallback((type: keyof ActiveFilters, value: string | number) => {
+    setFilters(prev => {
+      const next = { ...prev };
+      if (type === 'aliquota') {
+        const s = new Set(prev.aliquota);
+        const v = value as number;
+        if (s.has(v)) s.delete(v); else s.add(v);
+        next.aliquota = s;
+      } else if (type === 'status') {
+        const s = new Set(prev.status);
+        const v = value as StatusType;
+        if (s.has(v)) s.delete(v); else s.add(v);
+        next.status = s;
+      } else {
+        const s = new Set(prev[type]);
+        const v = String(value);
+        if (s.has(v)) s.delete(v); else s.add(v);
+        (next as Record<string, unknown>)[type] = s;
+      }
+      return next;
+    });
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setFilters(emptyFilters());
+  }, []);
+
+  const handleQuickGroup = useCallback((type: keyof ActiveFilters, values: Array<string | number>) => {
+    setFilters(prev => {
+      const next = emptyFilters();
+      if (type === 'aliquota') {
+        const current = prev.aliquota;
+        const same = values.length === current.size && values.every(v => current.has(v as number));
+        if (!same) next.aliquota = new Set(values as number[]);
+      } else if (type === 'status') {
+        const current = prev.status;
+        const same = values.length === current.size && values.every(v => current.has(v as StatusType));
+        if (!same) next.status = new Set(values as StatusType[]);
+      } else {
+        const current = prev[type] as Set<string>;
+        const strValues = values.map(String);
+        const same = strValues.length === current.size && strValues.every(v => current.has(v));
+        if (!same) (next as Record<string, unknown>)[type] = new Set(strValues);
+      }
+      return next;
+    });
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-gray-900">
               PRIME NF-e Auditor v2
@@ -131,7 +193,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-6">
+      <main className="max-w-6xl mx-auto px-6 py-6">
         <DropZone onFiles={handleFiles} isProcessing={isProcessing} />
 
         {parseErrors.length > 0 && (
@@ -152,14 +214,19 @@ export default function App() {
         </div>
 
         {results.length > 0 && (
-          <div>
-            <h2 className="text-lg font-semibold text-gray-800 mb-3">
-              Detalhamento
-            </h2>
-            {results.map((r, idx) => (
-              <NfeCard key={idx} validation={r} />
-            ))}
-          </div>
+          <>
+            <GroupingPanel
+              results={results}
+              filters={filters}
+              onToggleFilter={handleToggleFilter}
+              onClearFilters={handleClearFilters}
+              onQuickGroup={handleQuickGroup}
+            />
+
+            <CnpjLookupPanel results={results} />
+
+            <NfeListView results={results} filters={filters} />
+          </>
         )}
       </main>
 

@@ -15,6 +15,9 @@ describe('parseNfe', () => {
     expect(result.data.natOp).toBe('Venda de mercadoria');
     expect(result.data.tpNF).toBe('1');
     expect(result.data.fileName).toBe('test.xml');
+    expect(result.data.emitCnpj).toBe('00000000000100');
+    expect(result.data.emitNome).toBe('Emitente Teste Ltda');
+    expect(result.data.emitUF).toBe('SC');
     expect(result.data.dest.cnpj).toBe('12345678000199');
     expect(result.data.dest.uf).toBe('PR');
     expect(result.data.dest.indIEDest).toBe('1');
@@ -32,8 +35,8 @@ describe('parseNfe', () => {
     const item = result.data.itens[0]!;
     expect(item.ncm).toBe('85176239');
     expect(item.cfop).toBe('6101');
-    expect(item.cst).toBe('090');
-    expect(item.cstOrig).toBe('0');
+    expect(item.cst).toBe('190');
+    expect(item.cstOrig).toBe('1');
     expect(item.pICMS).toBe(12);
     expect(item.vBC).toBe(2000);
     expect(item.vICMS).toBe(240);
