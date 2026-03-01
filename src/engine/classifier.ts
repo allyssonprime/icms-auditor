@@ -82,9 +82,10 @@ export function classificarCenario(
       }
 
       // Contribuinte Normal
+      // CAMEX sobrepõe Industrial: se item é CAMEX, aliquota é 12% mesmo para industrial
       if (isContribuinte) {
-        if (dest.cnpj && config.listaIndustriais.includes(dest.cnpj)) return 'B3';
         if (isCAMEX) return 'B2';
+        if (dest.cnpj && config.listaIndustriais.includes(dest.cnpj)) return 'B3';
         return 'B1';
       }
     }

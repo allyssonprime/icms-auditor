@@ -105,11 +105,18 @@ describe('classificarCenario', () => {
     expect(classificarCenario(item, dest, config)).toBe('B12');
   });
 
-  it('B3: internal + industrial', () => {
+  it('B3: internal + industrial (non-CAMEX)', () => {
     const cfg = makeConfig({ listaIndustriais: ['12345678000199'] });
     const item = makeItem({ cfop: '5101' });
     const dest = makeDest({ uf: 'SC', indIEDest: '1', cnpj: '12345678000199' });
     expect(classificarCenario(item, dest, cfg)).toBe('B3');
+  });
+
+  it('B2: internal + industrial + CAMEX → CAMEX overrides industrial', () => {
+    const cfg = makeConfig({ listaIndustriais: ['12345678000199'], listaCamex: ['84713019'] });
+    const item = makeItem({ ncm: '84713019', cfop: '5101' });
+    const dest = makeDest({ uf: 'SC', indIEDest: '1', cnpj: '12345678000199' });
+    expect(classificarCenario(item, dest, cfg)).toBe('B2');
   });
 
   it('DEVOLUCAO: return CFOP', () => {
