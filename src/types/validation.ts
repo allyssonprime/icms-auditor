@@ -9,10 +9,17 @@ export interface ValidationResult {
   cenario?: string;
 }
 
+export interface CrossCheck {
+  label: string;
+  ok: boolean;
+  regra: string;
+}
+
 export interface ItemValidation {
   item: ItemData;
   cenario: string;
   resultados: ValidationResult[];
+  crossChecks: CrossCheck[];
   statusFinal: StatusType;
 }
 

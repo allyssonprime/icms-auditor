@@ -169,6 +169,27 @@ export function ItemDetail({ iv }: ItemDetailProps) {
           ))}
         </div>
       )}
+
+      {/* Cross-check checklist */}
+      {iv.crossChecks.length > 0 && (
+        <div className="ml-[18px] mt-2">
+          <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1">
+            Verificacoes ({iv.item.pICMS}%)
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
+            {iv.crossChecks.map((ck, idx) => (
+              <div key={idx} className="flex items-center gap-1.5 text-xs py-0.5">
+                <span className={`shrink-0 w-4 text-center font-bold ${ck.ok ? 'text-green-600' : 'text-red-500'}`}>
+                  {ck.ok ? '\u2713' : '\u2717'}
+                </span>
+                <span className={ck.ok ? 'text-gray-600' : 'text-red-700 font-medium'}>
+                  {ck.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

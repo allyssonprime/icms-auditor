@@ -1,5 +1,5 @@
 import type { NfeData, ItemData } from '../types/nfe.ts';
-import type { NfeValidation, ItemValidation, ValidationResult, StatusType } from '../types/validation.ts';
+import type { NfeValidation, ItemValidation, ValidationResult, StatusType, CrossCheck } from '../types/validation.ts';
 import type { AppConfig } from '../types/config.ts';
 import { verificarVedacoes } from './vedacoes.ts';
 import { classificarCenario } from './classifier.ts';
@@ -20,6 +20,7 @@ function validarItem(
   config: AppConfig,
 ): ItemValidation {
   const resultados: ValidationResult[] = [];
+  let crossChecks: CrossCheck[] = [];
 
   // Etapa 1: Vedações (bloqueante)
   const vedacoes = verificarVedacoes(item, config);
@@ -31,8 +32,10 @@ function validarItem(
   const cenario = CENARIOS[cenarioId];
 
   if (!bloqueado && cenario) {
-    // Etapa 3: Validar alíquota
-    resultados.push(validarAliquota(item, cenario, nfe.dest, config));
+    // Etapa 3: Validar alíquota + cross-checks
+    const aliqResult = validarAliquota(item, cenario, nfe.dest, config);
+    resultados.push(aliqResult.result);
+    crossChecks = aliqResult.crossChecks;
     // Etapa 4: Validar CST
     resultados.push(validarCST(item, cenario));
     // Etapa 5: Validar CFOP
@@ -54,7 +57,7 @@ function validarItem(
 
   const statusFinal = resolveStatus(resultados);
 
-  return { item, cenario: cenarioId, resultados, statusFinal };
+  return { item, cenario: cenarioId, resultados, crossChecks, statusFinal };
 }
 
 export function validarNfe(nfe: NfeData, config: AppConfig): NfeValidation {

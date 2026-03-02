@@ -51,6 +51,7 @@ function parseItem(det: Element): ItemData {
   let pICMS = 0;
   let vBC = 0;
   let vICMS = 0;
+  let pRedBC = 0;
   let vBCST = 0;
   let vICMSST = 0;
 
@@ -62,6 +63,7 @@ function parseItem(det: Element): ItemData {
       pICMS = getNumber(icmsChild, 'pICMS');
       vBC = getNumber(icmsChild, 'vBC');
       vICMS = getNumber(icmsChild, 'vICMS');
+      pRedBC = getNumber(icmsChild, 'pRedBC');
       vBCST = getNumber(icmsChild, 'vBCST');
       vICMSST = getNumber(icmsChild, 'vICMSST');
     }
@@ -80,6 +82,7 @@ function parseItem(det: Element): ItemData {
     vBC,
     vICMS,
     vProd,
+    pRedBC,
     vBCST,
     vICMSST,
   };

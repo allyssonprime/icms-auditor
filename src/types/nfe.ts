@@ -33,6 +33,7 @@ export interface ItemData {
   vBC: number;
   vICMS: number;
   vProd: number;
+  pRedBC: number;
   vBCST: number;
   vICMSST: number;
 }

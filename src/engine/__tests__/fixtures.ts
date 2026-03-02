@@ -16,6 +16,7 @@ export function makeItem(overrides: Partial<ItemData> = {}): ItemData {
     vBC: 1000,
     vICMS: 40,
     vProd: 1000,
+    pRedBC: 0,
     vBCST: 0,
     vICMSST: 0,
     ...overrides,
