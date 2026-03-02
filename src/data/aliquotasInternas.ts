@@ -1,0 +1,1 @@
+export const ALIQUOTAS_INTERNAS_VALIDAS = [7, 8.80, 12, 17, 25];
