@@ -36,4 +36,7 @@ export interface ItemData {
   pRedBC: number;
   vBCST: number;
   vICMSST: number;
+  cCredPresumido: string;
+  pCredPresumido: number;
+  vCredPresumido: number;
 }

@@ -19,6 +19,8 @@ export function exportToExcel(results: NfeValidation[]): void {
     'Dest CNPJ/CPF': r.nfe.dest.cnpj || r.nfe.dest.cpf || '',
     'Destinatario': r.nfe.dest.nome,
     'UF': r.nfe.dest.uf,
+    'IE': r.nfe.dest.ie || '',
+    'indIEDest': r.nfe.dest.indIEDest,
     'Qtd Itens': r.itensValidados.length,
     'OK': r.itensValidados.filter(i => i.statusFinal === 'OK').length,
     'Alertas': r.itensValidados.filter(i => i.statusFinal === 'ALERTA').length,
@@ -49,11 +51,18 @@ export function exportToExcel(results: NfeValidation[]): void {
         'Aliq. Esperada': cenario ? cenario.aliquotasAceitas.join('/') : '-',
         'BC': iv.item.vBC,
         'ICMS': iv.item.vICMS,
+        'pRedBC': iv.item.pRedBC || '',
         'Cenario': iv.cenario,
         'Status': iv.statusFinal,
+        'CP Codigo': iv.item.cCredPresumido || '',
+        'CP %': iv.item.pCredPresumido || '',
+        'CP Valor': iv.item.vCredPresumido || '',
         'Observacoes': iv.resultados
           .filter(r => r.status !== 'OK')
           .map(r => `[${r.regra}] ${r.mensagem}`)
+          .join(' | '),
+        'Cross-Checks': iv.crossChecks
+          .map(ck => `[${ck.severity}] ${ck.label}`)
           .join(' | '),
       };
     }),

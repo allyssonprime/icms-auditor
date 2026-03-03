@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { NfeValidation, CnpjInfo } from '../types/validation.ts';
 import { ItemDetail } from './ItemDetail.tsx';
 import { formatCNPJ, formatCurrency } from '../utils/formatters.ts';
+import { isNaoContribuinte } from '../engine/aliquota.ts';
 
 interface NfeCardProps {
   validation: NfeValidation;
@@ -29,6 +30,7 @@ export function NfeCard({ validation, cnpjInfoMap }: NfeCardProps) {
   const countErro = itensValidados.filter(i => i.statusFinal === 'ERRO').length;
 
   const destCnpjInfo = nfe.dest.cnpj ? cnpjInfoMap?.get(nfe.dest.cnpj.replace(/\D/g, '')) : undefined;
+  const isNC = isNaoContribuinte(nfe.dest);
 
   return (
     <div
@@ -52,6 +54,9 @@ export function NfeCard({ validation, cnpjInfoMap }: NfeCardProps) {
             )}
             {destCnpjInfo?.isIndustrial && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">Industrial</span>
+            )}
+            {isNC && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 font-medium">NC</span>
             )}
           </div>
           <div className="text-xs text-gray-500 mt-0.5">
@@ -90,6 +95,24 @@ export function NfeCard({ validation, cnpjInfoMap }: NfeCardProps) {
                   Industrial ({destCnpjInfo.cnaeDescricao || destCnpjInfo.cnaePrincipal})
                 </span>
               )}
+              {isNC && (
+                <span className="ml-1.5 px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 font-medium">
+                  Nao-contribuinte
+                </span>
+              )}
+            </div>
+            {nfe.dest.ie && (
+              <div>
+                <span className="font-medium text-gray-700">IE Destinatario:</span>{' '}
+                <span className="font-mono">{nfe.dest.ie}</span>
+              </div>
+            )}
+            <div>
+              <span className="font-medium text-gray-700">indIEDest:</span>{' '}
+              <span className="font-mono">{nfe.dest.indIEDest}</span>
+              <span className="text-gray-400 ml-1">
+                ({nfe.dest.indIEDest === '1' ? 'Contribuinte' : nfe.dest.indIEDest === '2' ? 'Isento' : nfe.dest.indIEDest === '9' ? 'Nao-contribuinte' : 'Outro'})
+              </span>
             </div>
             <div>
               <span className="font-medium text-gray-700">Chave:</span>{' '}

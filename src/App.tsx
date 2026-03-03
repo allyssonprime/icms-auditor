@@ -16,6 +16,7 @@ import { CnpjLookupPanel } from './components/CnpjLookupPanel.tsx';
 import { CenarioLegend } from './components/CenarioLegend.tsx';
 
 const STORAGE_KEY = 'prime-nfe-auditor-config';
+const ALLOWED_CFOPS = new Set(['5949', '5102', '6102']);
 
 function loadConfig(): AppConfig {
   try {
@@ -51,7 +52,16 @@ function emptyFilters(): ActiveFilters {
     cfop: new Set<string>(),
     cenario: new Set<string>(),
     status: new Set<StatusType>(),
+    vedado: new Set<string>(),
+    creditoPresumido: new Set<string>(),
+    tipoOperacao: new Set<string>(),
+    searchText: '',
   };
+}
+
+/** Check if NF-e has at least one item with allowed CFOP */
+function nfeHasAllowedCfop(items: Array<{ cfop: string }>): boolean {
+  return items.some(item => ALLOWED_CFOPS.has(item.cfop));
 }
 
 interface ParseError {
@@ -67,28 +77,34 @@ export default function App() {
   const [showConfig, setShowConfig] = useState(false);
   const [filters, setFilters] = useState<ActiveFilters>(emptyFilters);
   const [cnpjInfoMap, setCnpjInfoMap] = useState<Map<string, CnpjInfo>>(new Map());
+  const [discardedByCfop, setDiscardedByCfop] = useState(0);
 
-  // Save config and re-validate all NF-es when config changes
+  // Save config and re-validate all NF-es when config or cnpjInfoMap changes
   useEffect(() => {
     saveConfig(config);
     setResults(prev => {
       if (prev.length === 0) return prev;
-      return prev.map(r => validarNfe(r.nfe, config));
+      return prev.map(r => validarNfe(r.nfe, config, cnpjInfoMap));
     });
-  }, [config]);
+  }, [config, cnpjInfoMap]);
 
   const handleFiles = useCallback(
     async (files: File[]) => {
       setIsProcessing(true);
       const newResults: NfeValidation[] = [];
       const newErrors: ParseError[] = [];
+      let cfopDiscarded = 0;
 
       for (const file of files) {
         try {
           const text = await file.text();
           const parseResult = parseNfe(text, file.name);
           if (parseResult.success) {
-            newResults.push(validarNfe(parseResult.data, config));
+            if (nfeHasAllowedCfop(parseResult.data.itens)) {
+              newResults.push(validarNfe(parseResult.data, config, cnpjInfoMap));
+            } else {
+              cfopDiscarded++;
+            }
           } else {
             newErrors.push({ fileName: file.name, error: parseResult.error });
           }
@@ -102,9 +118,10 @@ export default function App() {
 
       setResults(prev => [...prev, ...newResults]);
       setParseErrors(prev => [...prev, ...newErrors]);
+      setDiscardedByCfop(prev => prev + cfopDiscarded);
       setIsProcessing(false);
     },
-    [config],
+    [config, cnpjInfoMap],
   );
 
   const handleClear = () => {
@@ -112,6 +129,7 @@ export default function App() {
     setParseErrors([]);
     setFilters(emptyFilters());
     setCnpjInfoMap(new Map());
+    setDiscardedByCfop(0);
   };
 
   const handleSaveConfig = (newConfig: AppConfig) => {
@@ -145,7 +163,9 @@ export default function App() {
   const handleToggleFilter = useCallback((type: keyof ActiveFilters, value: string | number) => {
     setFilters(prev => {
       const next = { ...prev };
-      if (type === 'aliquota') {
+      if (type === 'searchText') {
+        next.searchText = String(value);
+      } else if (type === 'aliquota') {
         const s = new Set(prev.aliquota);
         const v = value as number;
         if (s.has(v)) s.delete(v); else s.add(v);
@@ -172,6 +192,7 @@ export default function App() {
   const handleQuickGroup = useCallback((type: keyof ActiveFilters, values: Array<string | number>) => {
     setFilters(prev => {
       const next = emptyFilters();
+      if (type === 'searchText') return next;
       if (type === 'aliquota') {
         const current = prev.aliquota;
         const same = values.length === current.size && values.every(v => current.has(v as number));
@@ -188,6 +209,10 @@ export default function App() {
       }
       return next;
     });
+  }, []);
+
+  const handleSearchChange = useCallback((text: string) => {
+    setFilters(prev => ({ ...prev, searchText: text }));
   }, []);
 
   return (
@@ -237,7 +262,7 @@ export default function App() {
         )}
 
         <div className="mt-6">
-          <Dashboard results={results} />
+          <Dashboard results={results} discardedByCfop={discardedByCfop} config={config} />
         </div>
 
         {results.length > 0 && (
@@ -250,6 +275,8 @@ export default function App() {
               onToggleFilter={handleToggleFilter}
               onClearFilters={handleClearFilters}
               onQuickGroup={handleQuickGroup}
+              onSearchChange={handleSearchChange}
+              cnpjInfoMap={cnpjInfoMap}
             />
 
             <CnpjLookupPanel results={results} onCnpjInfoLoaded={handleCnpjInfoLoaded} />

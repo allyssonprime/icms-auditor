@@ -1,5 +1,5 @@
 import type { NfeData, ItemData } from '../types/nfe.ts';
-import type { NfeValidation, ItemValidation, ValidationResult, StatusType, CrossCheck } from '../types/validation.ts';
+import type { NfeValidation, ItemValidation, ValidationResult, StatusType, CrossCheck, CnpjInfo } from '../types/validation.ts';
 import type { AppConfig } from '../types/config.ts';
 import { verificarVedacoes } from './vedacoes.ts';
 import { classificarCenario } from './classifier.ts';
@@ -7,6 +7,7 @@ import { CENARIOS } from './cenarios.ts';
 import { validarAliquota } from './aliquota.ts';
 import { validarCST } from './cst.ts';
 import { validarCFOP } from './cfop.ts';
+import { isCobreAco } from '../data/cobreAco.ts';
 
 function resolveStatus(results: ValidationResult[]): StatusType {
   if (results.some(r => r.status === 'ERRO')) return 'ERRO';
@@ -18,6 +19,7 @@ function validarItem(
   nfe: NfeData,
   item: ItemData,
   config: AppConfig,
+  cnpjInfoMap?: Map<string, CnpjInfo>,
 ): ItemValidation {
   const resultados: ValidationResult[] = [];
   let crossChecks: CrossCheck[] = [];
@@ -33,7 +35,7 @@ function validarItem(
 
   if (!bloqueado && cenario) {
     // Etapa 3: Validar alíquota + cross-checks
-    const aliqResult = validarAliquota(item, cenario, nfe.dest, config);
+    const aliqResult = validarAliquota(item, cenario, nfe.dest, config, cnpjInfoMap);
     resultados.push(aliqResult.result);
     crossChecks = aliqResult.crossChecks;
     // Etapa 4: Validar CST
@@ -60,8 +62,12 @@ function validarItem(
   return { item, cenario: cenarioId, resultados, crossChecks, statusFinal };
 }
 
-export function validarNfe(nfe: NfeData, config: AppConfig): NfeValidation {
-  const itensValidados = nfe.itens.map(item => validarItem(nfe, item, config));
+export function validarNfe(
+  nfe: NfeData,
+  config: AppConfig,
+  cnpjInfoMap?: Map<string, CnpjInfo>,
+): NfeValidation {
+  const itensValidados = nfe.itens.map(item => validarItem(nfe, item, config, cnpjInfoMap));
 
   const statusFinal = resolveStatus(
     itensValidados.flatMap(iv => iv.resultados),
@@ -79,7 +85,12 @@ export function validarNfe(nfe: NfeData, config: AppConfig): NfeValidation {
   for (const iv of itensValidados) {
     const cenario = CENARIOS[iv.cenario];
     if (cenario && cenario.cargaEfetiva > 0) {
-      totalICMSRecolher += iv.item.vBC * (cenario.cargaEfetiva / 100);
+      // Aço/cobre com alíquota 4%: carga efetiva = 0,6% ao invés da padrão
+      let cargaEfetiva = cenario.cargaEfetiva;
+      if (Math.abs(iv.item.pICMS - 4) < 0.01 && isCobreAco(iv.item.ncm, config.listaCobreAco)) {
+        cargaEfetiva = 0.6;
+      }
+      totalICMSRecolher += iv.item.vBC * (cargaEfetiva / 100);
     }
     if (!cenariosSemFundos.has(iv.cenario)) {
       totalFundos += iv.item.vBC * 0.004;

@@ -9,9 +9,12 @@ export interface ValidationResult {
   cenario?: string;
 }
 
+export type CrossCheckSeverity = 'ok' | 'atencao' | 'divergente';
+
 export interface CrossCheck {
   label: string;
-  ok: boolean;
+  severity: CrossCheckSeverity;
+  passed: boolean;
   regra: string;
 }
 
@@ -50,6 +53,10 @@ export type ActiveFilters = {
   cfop: Set<string>;
   cenario: Set<string>;
   status: Set<StatusType>;
+  vedado: Set<string>;
+  creditoPresumido: Set<string>;
+  tipoOperacao: Set<string>;
+  searchText: string;
 };
 
 export interface GroupedData {
