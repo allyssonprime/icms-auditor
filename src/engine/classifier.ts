@@ -1,6 +1,7 @@
 import type { ItemData, DestData } from '../types/nfe.ts';
 import type { AppConfig } from '../types/config.ts';
 import { isCobreAco } from '../data/cobreAco.ts';
+import { isNaoContribuinte } from './aliquota.ts';
 
 function isTransferencia(cfop: string): boolean {
   return ['5152', '5155', '6152', '6155'].includes(cfop);
@@ -18,7 +19,7 @@ export function classificarCenario(
   try {
     const isInterestadual = dest.uf.toUpperCase() !== 'SC';
     const isPF = !!dest.cpf && !dest.cnpj;
-    const isPJNaoContribuinte = dest.indIEDest === '9' && !isPF;
+    const isPJNaoContribuinte = !isPF && isNaoContribuinte(dest);
     const isContribuinte = dest.indIEDest === '1';
     const isSN = !!dest.cnpj && config.listaSN.includes(dest.cnpj);
 
@@ -28,7 +29,7 @@ export function classificarCenario(
       return normalizedNcm.startsWith(camexNorm);
     });
 
-    const cobreAco = isCobreAco(item.ncm);
+    const cobreAco = isCobreAco(item.ncm, config.listaCobreAco);
 
     const cstTrib = item.cst.length >= 2 ? item.cst.slice(-2) : item.cst;
     const temST = ['10', '30', '60', '70'].includes(cstTrib);

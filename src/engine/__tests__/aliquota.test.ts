@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validarAliquota } from '../aliquota.ts';
+import { validarAliquota, isNaoContribuinte } from '../aliquota.ts';
 import { CENARIOS } from '../cenarios.ts';
 import { makeItem, makeDest, makeConfig } from './fixtures.ts';
 
@@ -275,5 +275,64 @@ describe('cross-checks 17% (OR: BC reduzida OU SN OU NC)', () => {
     expect(crossChecks.find(c => c.regra === 'CK17A')?.severity).toBe('divergente');
     expect(crossChecks.find(c => c.regra === 'CK17B')?.severity).toBe('divergente');
     expect(crossChecks.find(c => c.regra === 'CK17C')?.severity).toBe('divergente');
+  });
+});
+
+describe('isNaoContribuinte', () => {
+  it('indIEDest=9 → NC', () => {
+    expect(isNaoContribuinte(makeDest({ indIEDest: '9', ie: '123' }))).toBe(true);
+  });
+
+  it('IE vazia → NC', () => {
+    expect(isNaoContribuinte(makeDest({ indIEDest: '1', ie: '' }))).toBe(true);
+  });
+
+  it('IE undefined → NC', () => {
+    expect(isNaoContribuinte(makeDest({ indIEDest: '1', ie: undefined }))).toBe(true);
+  });
+
+  it('IE ISENTA → NC', () => {
+    expect(isNaoContribuinte(makeDest({ indIEDest: '2', ie: 'ISENTA' }))).toBe(true);
+  });
+
+  it('IE ISENTO → NC', () => {
+    expect(isNaoContribuinte(makeDest({ indIEDest: '2', ie: 'ISENTO' }))).toBe(true);
+  });
+
+  it('IE com numero + indIEDest=1 → NOT NC', () => {
+    expect(isNaoContribuinte(makeDest({ indIEDest: '1', ie: '1234567890' }))).toBe(false);
+  });
+});
+
+describe('cross-checks passed field', () => {
+  it('12% + CST 6 → CK12A.passed=true, CK12B.passed=false', () => {
+    const item = makeItem({ pICMS: 12, cstOrig: '6', cst: '690' });
+    const dest = makeDest({ uf: 'SC', indIEDest: '1' });
+    const { crossChecks } = validarAliquota(item, CENARIOS['B2']!, dest, makeConfig());
+    expect(crossChecks.find(c => c.regra === 'CK12A')?.passed).toBe(true);
+    expect(crossChecks.find(c => c.regra === 'CK12B')?.passed).toBe(false);
+  });
+
+  it('4% + CST orig 1 → CK04C.passed=true, CK04B.passed=true', () => {
+    const item = makeItem({ pICMS: 4, cstOrig: '1', cst: '151' });
+    const dest = makeDest({ uf: 'SC', indIEDest: '1' });
+    const { crossChecks } = validarAliquota(item, CENARIOS['B1']!, dest, makeConfig());
+    expect(crossChecks.find(c => c.regra === 'CK04C')?.passed).toBe(true);
+    expect(crossChecks.find(c => c.regra === 'CK04B')?.passed).toBe(true);
+  });
+
+  it('17% + NC → CK17C.passed=true', () => {
+    const item = makeItem({ pICMS: 17, cstOrig: '1', cst: '100' });
+    const dest = makeDest({ uf: 'SC', indIEDest: '9' });
+    const { crossChecks } = validarAliquota(item, CENARIOS['B6']!, dest, makeConfig());
+    expect(crossChecks.find(c => c.regra === 'CK17C')?.passed).toBe(true);
+  });
+
+  it('NC by empty IE → 12% CK12D divergente', () => {
+    const item = makeItem({ pICMS: 12, cstOrig: '6', cst: '690' });
+    const dest = makeDest({ uf: 'SC', indIEDest: '1', ie: '' });
+    const { crossChecks } = validarAliquota(item, CENARIOS['B2']!, dest, makeConfig());
+    expect(crossChecks.find(c => c.regra === 'CK12D')?.severity).toBe('divergente');
+    expect(crossChecks.find(c => c.regra === 'CK12D')?.passed).toBe(false);
   });
 });

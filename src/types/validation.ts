@@ -14,6 +14,7 @@ export type CrossCheckSeverity = 'ok' | 'atencao' | 'divergente';
 export interface CrossCheck {
   label: string;
   severity: CrossCheckSeverity;
+  passed: boolean;
   regra: string;
 }
 

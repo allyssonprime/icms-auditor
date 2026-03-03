@@ -7,6 +7,7 @@ import { CENARIOS } from './cenarios.ts';
 import { validarAliquota } from './aliquota.ts';
 import { validarCST } from './cst.ts';
 import { validarCFOP } from './cfop.ts';
+import { isCobreAco } from '../data/cobreAco.ts';
 
 function resolveStatus(results: ValidationResult[]): StatusType {
   if (results.some(r => r.status === 'ERRO')) return 'ERRO';
@@ -84,7 +85,12 @@ export function validarNfe(
   for (const iv of itensValidados) {
     const cenario = CENARIOS[iv.cenario];
     if (cenario && cenario.cargaEfetiva > 0) {
-      totalICMSRecolher += iv.item.vBC * (cenario.cargaEfetiva / 100);
+      // Aço/cobre com alíquota 4%: carga efetiva = 0,6% ao invés da padrão
+      let cargaEfetiva = cenario.cargaEfetiva;
+      if (Math.abs(iv.item.pICMS - 4) < 0.01 && isCobreAco(iv.item.ncm, config.listaCobreAco)) {
+        cargaEfetiva = 0.6;
+      }
+      totalICMSRecolher += iv.item.vBC * (cargaEfetiva / 100);
     }
     if (!cenariosSemFundos.has(iv.cenario)) {
       totalFundos += iv.item.vBC * 0.004;

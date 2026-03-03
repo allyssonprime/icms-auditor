@@ -9,6 +9,14 @@ export interface AliquotaResult {
   crossChecks: CrossCheck[];
 }
 
+/** Não-contribuinte: indIEDest=9 OU IE ausente/ISENTA/ISENTO */
+export function isNaoContribuinte(dest: DestData): boolean {
+  if (dest.indIEDest === '9') return true;
+  if (!dest.ie || dest.ie.trim() === '') return true;
+  const ieUpper = dest.ie.toUpperCase().trim();
+  return ieUpper === 'ISENTA' || ieUpper === 'ISENTO';
+}
+
 function isCAMEXByOrigin(item: ItemData): boolean {
   return item.cstOrig === '6';
 }
@@ -49,7 +57,7 @@ function crossChecks12(
   const camexOrig = isCAMEXByOrigin(item);
   const camexNCM = isCAMEXByNCM(item, config);
   const isSN = !!dest.cnpj && config.listaSN.includes(dest.cnpj);
-  const isNC = dest.indIEDest === '9';
+  const isNC = isNaoContribuinte(dest);
 
   // OR: CST 6 | NCM CAMEX | SN
   const anyOrPassed = camexOrig || camexNCM || isSN;
@@ -57,10 +65,10 @@ function crossChecks12(
   const mandatoryOk = !isNC;
 
   const checks: CrossCheck[] = [
-    { label: 'CST origem = 6 (CAMEX)?', severity: assignOrSeverity(camexOrig, anyOrPassed), regra: 'CK12A' },
-    { label: 'NCM na lista CAMEX?', severity: assignOrSeverity(camexNCM, anyOrPassed), regra: 'CK12B' },
-    { label: 'Destinatario e Simples Nacional?', severity: assignOrSeverity(isSN, anyOrPassed), regra: 'CK12C' },
-    { label: 'Destinatario NÃO e nao-contribuinte?', severity: assignMandatorySeverity(mandatoryOk), regra: 'CK12D' },
+    { label: 'CST origem = 6 (CAMEX)?', severity: assignOrSeverity(camexOrig, anyOrPassed), passed: camexOrig, regra: 'CK12A' },
+    { label: 'NCM na lista CAMEX?', severity: assignOrSeverity(camexNCM, anyOrPassed), passed: camexNCM, regra: 'CK12B' },
+    { label: 'Destinatário é Simples Nacional?', severity: assignOrSeverity(isSN, anyOrPassed), passed: isSN, regra: 'CK12C' },
+    { label: 'Destinatário NÃO é não-contribuinte?', severity: assignMandatorySeverity(mandatoryOk), passed: mandatoryOk, regra: 'CK12D' },
   ];
 
   const hasJustification = mandatoryOk && anyOrPassed;
@@ -77,7 +85,7 @@ function crossChecks10(
   const isInterna = dest.uf.toUpperCase() === 'SC';
   const isIndustrial = !!dest.cnpj && config.listaIndustriais.includes(dest.cnpj);
   const isSN = !!dest.cnpj && config.listaSN.includes(dest.cnpj);
-  const isNC = dest.indIEDest === '9';
+  const isNC = isNaoContribuinte(dest);
 
   // CK10E: CNAE de atividade industrial (da CNPJa)
   let cnaeIndustrial = false;
@@ -91,11 +99,11 @@ function crossChecks10(
 
   // Mandatory: interna, NOT SN, NOT NC
   const checks: CrossCheck[] = [
-    { label: 'Remessa interna (SC para SC)?', severity: assignMandatorySeverity(isInterna), regra: 'CK10A' },
-    { label: 'Dest. na lista de industriais?', severity: cenario.id === 'B3' ? assignOrSeverity(isIndustrial, anyOrPassed) : assignMandatorySeverity(isIndustrial), regra: 'CK10B' },
-    { label: 'CNAE de atividade industrial?', severity: cenario.id === 'B3' ? assignOrSeverity(cnaeIndustrial, anyOrPassed) : assignOrSeverity(cnaeIndustrial, cnaeIndustrial), regra: 'CK10E' },
-    { label: 'Dest. NÃO e optante do Simples Nacional?', severity: assignMandatorySeverity(!isSN), regra: 'CK10C' },
-    { label: 'Dest. NÃO e nao-contribuinte?', severity: assignMandatorySeverity(!isNC), regra: 'CK10D' },
+    { label: 'Remessa interna (SC para SC)?', severity: assignMandatorySeverity(isInterna), passed: isInterna, regra: 'CK10A' },
+    { label: 'Dest. na lista de industriais?', severity: cenario.id === 'B3' ? assignOrSeverity(isIndustrial, anyOrPassed) : assignMandatorySeverity(isIndustrial), passed: isIndustrial, regra: 'CK10B' },
+    { label: 'CNAE é de atividade industrial?', severity: cenario.id === 'B3' ? assignOrSeverity(cnaeIndustrial, anyOrPassed) : assignOrSeverity(cnaeIndustrial, cnaeIndustrial), passed: cnaeIndustrial, regra: 'CK10E' },
+    { label: 'Dest. NÃO é optante do Simples Nacional?', severity: assignMandatorySeverity(!isSN), passed: !isSN, regra: 'CK10C' },
+    { label: 'Dest. NÃO é não-contribuinte?', severity: assignMandatorySeverity(!isNC), passed: !isNC, regra: 'CK10D' },
   ];
 
   const mandatoryOk = isInterna && !isSN && !isNC;
@@ -121,9 +129,9 @@ function crossChecks04(
   const snOk = isB4 || !isSN;
 
   const checks: CrossCheck[] = [
-    { label: 'Dest. NÃO e optante do Simples Nacional?', severity: assignMandatorySeverity(snOk), regra: 'CK04A' },
-    { label: 'CST origem ≠ 6 (deveria ser 12%)?', severity: assignMandatorySeverity(!cstOrig6), regra: 'CK04B' },
-    { label: 'CST origem = 1 (importado com similar)?', severity: assignMandatorySeverity(cstOrig1), regra: 'CK04C' },
+    { label: 'Dest. NÃO é optante do Simples Nacional?', severity: assignMandatorySeverity(snOk), passed: snOk, regra: 'CK04A' },
+    { label: 'CST origem ≠ 6 (deveria ser 12%)?', severity: assignMandatorySeverity(!cstOrig6), passed: !cstOrig6, regra: 'CK04B' },
+    { label: 'CST origem = 1 (importado com similar)?', severity: assignMandatorySeverity(cstOrig1), passed: cstOrig1, regra: 'CK04C' },
   ];
 
   const hasJustification = snOk && !cstOrig6 && cstOrig1;
@@ -137,7 +145,7 @@ function crossChecks17(
 ): { checks: CrossCheck[]; hasJustification: boolean; snOnly: boolean } {
   const bcReduzida = isBCReduzida(item);
   const isSN = !!dest.cnpj && config.listaSN.includes(dest.cnpj);
-  const isNC = dest.indIEDest === '9';
+  const isNC = isNaoContribuinte(dest);
 
   // OR: BC reduzida | SN (fraco) | NC
   const anyOrPassed = bcReduzida || isSN || isNC;
@@ -145,9 +153,9 @@ function crossChecks17(
   const snOnly = !bcReduzida && !isNC && isSN;
 
   const checks: CrossCheck[] = [
-    { label: 'Base de calculo e reduzida?', severity: assignOrSeverity(bcReduzida, anyOrPassed), regra: 'CK17A' },
-    { label: 'Destinatario e Simples Nacional?', severity: snOnly ? 'atencao' : assignOrSeverity(isSN, anyOrPassed), regra: 'CK17B' },
-    { label: 'Destinatario e nao-contribuinte?', severity: assignOrSeverity(isNC, anyOrPassed), regra: 'CK17C' },
+    { label: 'Base de cálculo é reduzida?', severity: assignOrSeverity(bcReduzida, anyOrPassed), passed: bcReduzida, regra: 'CK17A' },
+    { label: 'Destinatário é Simples Nacional?', severity: snOnly ? 'atencao' : assignOrSeverity(isSN, anyOrPassed), passed: isSN, regra: 'CK17B' },
+    { label: 'Destinatário é não-contribuinte?', severity: assignOrSeverity(isNC, anyOrPassed), passed: isNC, regra: 'CK17C' },
   ];
 
   const hasJustification = anyOrPassed;

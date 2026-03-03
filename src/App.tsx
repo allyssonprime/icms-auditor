@@ -262,7 +262,7 @@ export default function App() {
         )}
 
         <div className="mt-6">
-          <Dashboard results={results} discardedByCfop={discardedByCfop} />
+          <Dashboard results={results} discardedByCfop={discardedByCfop} config={config} />
         </div>
 
         {results.length > 0 && (

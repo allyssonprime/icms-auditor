@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { NfeValidation, ActiveFilters, CnpjInfo } from '../types/validation.ts';
 import { NfeCard } from './NfeCard.tsx';
 import { formatCNPJ, formatCurrency } from '../utils/formatters.ts';
+import { isNaoContribuinte } from '../engine/aliquota.ts';
 
 interface NfeListViewProps {
   results: NfeValidation[];
@@ -164,7 +165,7 @@ export function NfeListView({ results, filters, cnpjInfoMap }: NfeListViewProps)
                         </span>
                         {(() => {
                           const info = v.nfe.dest.cnpj ? cnpjInfoMap?.get(v.nfe.dest.cnpj.replace(/\D/g, '')) : undefined;
-                          const isNC = v.nfe.dest.indIEDest === '9';
+                          const isNC = isNaoContribuinte(v.nfe.dest);
                           return (
                             <>
                               {info?.simplesOptante === true && (

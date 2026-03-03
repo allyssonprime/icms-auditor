@@ -25,6 +25,13 @@ function textToNcmList(text: string): string[] {
     .filter(s => s.length >= 4);
 }
 
+function textToNcmListShort(text: string): string[] {
+  return text
+    .split('\n')
+    .map(s => s.replace(/\D/g, ''))
+    .filter(s => s.length >= 2);
+}
+
 function ncmListToText(list: string[]): string {
   return list
     .map(ncm => {
@@ -44,6 +51,7 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
   const [listaCD, setListaCD] = useState(listToText(config.listaCD));
   const [listaVedacao25a, setListaVedacao25a] = useState(listToText(config.listaVedacao25a));
   const [listaVedacao25b, setListaVedacao25b] = useState(listToText(config.listaVedacao25b));
+  const [listaCobreAco, setListaCobreAco] = useState(ncmListToText(config.listaCobreAco));
 
   const handleSave = () => {
     onSave({
@@ -55,6 +63,7 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
       listaCD: textToList(listaCD),
       listaVedacao25a: textToList(listaVedacao25a),
       listaVedacao25b: textToList(listaVedacao25b),
+      listaCobreAco: textToNcmListShort(listaCobreAco),
     });
   };
 
@@ -84,6 +93,13 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
             value={listaCamex}
             onChange={setListaCamex}
             placeholder="84713019&#10;85176239"
+          />
+          <ConfigTextarea
+            label="Aco/Cobre — NCMs (prefixos 2+ digitos, um por linha)"
+            value={listaCobreAco}
+            onChange={setListaCobreAco}
+            placeholder="72&#10;73&#10;74&#10;7106"
+            hint={`${textToNcmListShort(listaCobreAco).length} prefixos cadastrados. Aceita prefixos curtos (2 digitos) ou NCM completa.`}
           />
           <ConfigTextarea
             label="Simples Nacional (CNPJs — um por linha)"

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { NfeValidation, CnpjInfo } from '../types/validation.ts';
 import { ItemDetail } from './ItemDetail.tsx';
 import { formatCNPJ, formatCurrency } from '../utils/formatters.ts';
+import { isNaoContribuinte } from '../engine/aliquota.ts';
 
 interface NfeCardProps {
   validation: NfeValidation;
@@ -29,7 +30,7 @@ export function NfeCard({ validation, cnpjInfoMap }: NfeCardProps) {
   const countErro = itensValidados.filter(i => i.statusFinal === 'ERRO').length;
 
   const destCnpjInfo = nfe.dest.cnpj ? cnpjInfoMap?.get(nfe.dest.cnpj.replace(/\D/g, '')) : undefined;
-  const isNC = nfe.dest.indIEDest === '9';
+  const isNC = isNaoContribuinte(nfe.dest);
 
   return (
     <div
