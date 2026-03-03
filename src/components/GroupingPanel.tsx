@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { NfeValidation, ActiveFilters, GroupedData } from '../types/validation.ts';
+import type { NfeValidation, ActiveFilters, GroupedData, CnpjInfo } from '../types/validation.ts';
 import { formatCurrency } from '../utils/formatters.ts';
 
 interface GroupingPanelProps {
@@ -8,6 +8,8 @@ interface GroupingPanelProps {
   onToggleFilter: (type: keyof ActiveFilters, value: string | number) => void;
   onClearFilters: () => void;
   onQuickGroup: (type: keyof ActiveFilters, values: Array<string | number>) => void;
+  onSearchChange: (text: string) => void;
+  cnpjInfoMap?: Map<string, CnpjInfo>;
 }
 
 function buildGroups(
@@ -37,18 +39,73 @@ function buildGroups(
     .sort((a, b) => b.totalBC - a.totalBC);
 }
 
-export function GroupingPanel({ results, filters, onToggleFilter, onClearFilters, onQuickGroup }: GroupingPanelProps) {
+function buildDimensionGroups(
+  results: NfeValidation[],
+  dimension: 'vedado' | 'creditoPresumido' | 'tipoOperacao',
+): GroupedData[] {
+  const map = new Map<string, { count: number; totalBC: number; totalICMS: number }>();
+
+  for (const r of results) {
+    for (const iv of r.itensValidados) {
+      let key: string;
+      if (dimension === 'vedado') {
+        key = iv.cenario === 'VEDADO' ? 'Sim' : 'Nao';
+      } else if (dimension === 'creditoPresumido') {
+        key = iv.item.cCredPresumido ? `CP ${iv.item.cCredPresumido}` : 'Sem CP';
+      } else {
+        key = r.nfe.dest.uf.toUpperCase() === 'SC' ? 'Interna' : 'Interestadual';
+      }
+
+      const existing = map.get(key) ?? { count: 0, totalBC: 0, totalICMS: 0 };
+      existing.count += 1;
+      existing.totalBC += iv.item.vBC;
+      existing.totalICMS += iv.item.vICMS;
+      map.set(key, existing);
+    }
+  }
+
+  return Array.from(map.entries())
+    .map(([label, data]) => ({ label, ...data }))
+    .sort((a, b) => b.totalBC - a.totalBC);
+}
+
+export function GroupingPanel({
+  results,
+  filters,
+  onToggleFilter,
+  onClearFilters,
+  onQuickGroup,
+  onSearchChange,
+}: GroupingPanelProps) {
   const byAliquota = useMemo(() => buildGroups(results, 'aliquota'), [results]);
   const byCst = useMemo(() => buildGroups(results, 'cst'), [results]);
   const byCfop = useMemo(() => buildGroups(results, 'cfop'), [results]);
   const byCenario = useMemo(() => buildGroups(results, 'cenario'), [results]);
+  const byVedado = useMemo(() => buildDimensionGroups(results, 'vedado'), [results]);
+  const byCreditoPresumido = useMemo(() => buildDimensionGroups(results, 'creditoPresumido'), [results]);
+  const byTipoOperacao = useMemo(() => buildDimensionGroups(results, 'tipoOperacao'), [results]);
+
+  // Dynamic aliquota quick buttons from actual data
+  const aliquotaValues = useMemo(() => {
+    const set = new Set<number>();
+    for (const r of results) {
+      for (const iv of r.itensValidados) {
+        set.add(iv.item.pICMS);
+      }
+    }
+    return Array.from(set).sort((a, b) => a - b);
+  }, [results]);
 
   const hasFilters =
     filters.aliquota.size > 0 ||
     filters.cst.size > 0 ||
     filters.cfop.size > 0 ||
     filters.cenario.size > 0 ||
-    filters.status.size > 0;
+    filters.status.size > 0 ||
+    filters.vedado.size > 0 ||
+    filters.creditoPresumido.size > 0 ||
+    filters.tipoOperacao.size > 0 ||
+    filters.searchText.length > 0;
 
   if (results.length === 0) return null;
 
@@ -66,45 +123,28 @@ export function GroupingPanel({ results, filters, onToggleFilter, onClearFilters
         )}
       </div>
 
+      {/* Search input */}
+      <div className="mb-4">
+        <input
+          type="text"
+          placeholder="Buscar por CNPJ, IE, razao social..."
+          value={filters.searchText}
+          onChange={e => onSearchChange(e.target.value)}
+          className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+      </div>
+
       {/* Quick groups */}
       <div className="flex flex-wrap gap-2 mb-4">
         <span className="text-xs text-gray-500 self-center mr-1">Rapido:</span>
-        <QuickButton
-          label="4%"
-          onClick={() => onQuickGroup('aliquota', [4])}
-          active={filters.aliquota.has(4) && filters.aliquota.size === 1}
-        />
-        <QuickButton
-          label="10%"
-          onClick={() => onQuickGroup('aliquota', [10])}
-          active={filters.aliquota.has(10) && filters.aliquota.size === 1}
-        />
-        <QuickButton
-          label="12%"
-          onClick={() => onQuickGroup('aliquota', [12])}
-          active={filters.aliquota.has(12) && filters.aliquota.size === 1}
-        />
-        <span className="text-gray-300">|</span>
-        <QuickButton
-          label="CST 600"
-          onClick={() => onQuickGroup('cst', ['600'])}
-          active={filters.cst.has('600') && filters.cst.size === 1}
-        />
-        <QuickButton
-          label="CST 651"
-          onClick={() => onQuickGroup('cst', ['651'])}
-          active={filters.cst.has('651') && filters.cst.size === 1}
-        />
-        <QuickButton
-          label="CST 100"
-          onClick={() => onQuickGroup('cst', ['100'])}
-          active={filters.cst.has('100') && filters.cst.size === 1}
-        />
-        <QuickButton
-          label="CST 151"
-          onClick={() => onQuickGroup('cst', ['151'])}
-          active={filters.cst.has('151') && filters.cst.size === 1}
-        />
+        {aliquotaValues.map(aliq => (
+          <QuickButton
+            key={`aliq-${aliq}`}
+            label={`${aliq}%`}
+            onClick={() => onQuickGroup('aliquota', [aliq])}
+            active={filters.aliquota.has(aliq) && filters.aliquota.size === 1}
+          />
+        ))}
         <span className="text-gray-300">|</span>
         <QuickButton
           label="Somente Erros"
@@ -115,6 +155,22 @@ export function GroupingPanel({ results, filters, onToggleFilter, onClearFilters
           label="Alertas"
           onClick={() => onQuickGroup('status', ['ALERTA'])}
           active={filters.status.has('ALERTA') && filters.status.size === 1}
+        />
+        <span className="text-gray-300">|</span>
+        <QuickButton
+          label="Vedados"
+          onClick={() => onQuickGroup('vedado', ['Sim'])}
+          active={filters.vedado.has('Sim') && filters.vedado.size === 1}
+        />
+        <QuickButton
+          label="Internas"
+          onClick={() => onQuickGroup('tipoOperacao', ['Interna'])}
+          active={filters.tipoOperacao.has('Interna') && filters.tipoOperacao.size === 1}
+        />
+        <QuickButton
+          label="Interestaduais"
+          onClick={() => onQuickGroup('tipoOperacao', ['Interestadual'])}
+          active={filters.tipoOperacao.has('Interestadual') && filters.tipoOperacao.size === 1}
         />
       </div>
 
@@ -147,6 +203,27 @@ export function GroupingPanel({ results, filters, onToggleFilter, onClearFilters
           activeSet={filters.cenario}
           getKey={(g) => g.label}
           onToggle={(v) => onToggleFilter('cenario', v)}
+        />
+        <GroupTable
+          title="Vedados"
+          groups={byVedado}
+          activeSet={filters.vedado}
+          getKey={(g) => g.label}
+          onToggle={(v) => onToggleFilter('vedado', v)}
+        />
+        <GroupTable
+          title="Credito Presumido"
+          groups={byCreditoPresumido}
+          activeSet={filters.creditoPresumido}
+          getKey={(g) => g.label}
+          onToggle={(v) => onToggleFilter('creditoPresumido', v)}
+        />
+        <GroupTable
+          title="Tipo Operacao"
+          groups={byTipoOperacao}
+          activeSet={filters.tipoOperacao}
+          getKey={(g) => g.label}
+          onToggle={(v) => onToggleFilter('tipoOperacao', v)}
         />
       </div>
     </div>

@@ -1,6 +1,6 @@
 import type { ItemData, DestData } from '../types/nfe.ts';
 import type { CenarioConfig } from '../types/cenario.ts';
-import type { ValidationResult, CrossCheck } from '../types/validation.ts';
+import type { ValidationResult, CrossCheck, CrossCheckSeverity, CnpjInfo } from '../types/validation.ts';
 import type { AppConfig } from '../types/config.ts';
 import { getAliquotaInterestadual } from '../data/ufAliquotas.ts';
 
@@ -29,6 +29,16 @@ function isBCReduzida(item: ItemData): boolean {
   return false;
 }
 
+// Helpers para lógica OR com 3 níveis de severidade
+function assignOrSeverity(passed: boolean, anyOrPassed: boolean): CrossCheckSeverity {
+  if (passed) return 'ok';
+  return anyOrPassed ? 'atencao' : 'divergente';
+}
+
+function assignMandatorySeverity(passed: boolean): CrossCheckSeverity {
+  return passed ? 'ok' : 'divergente';
+}
+
 // ----- Cross-checks por aliquota -----
 
 function crossChecks12(
@@ -41,14 +51,19 @@ function crossChecks12(
   const isSN = !!dest.cnpj && config.listaSN.includes(dest.cnpj);
   const isNC = dest.indIEDest === '9';
 
+  // OR: CST 6 | NCM CAMEX | SN
+  const anyOrPassed = camexOrig || camexNCM || isSN;
+  // Mandatory: NOT NC
+  const mandatoryOk = !isNC;
+
   const checks: CrossCheck[] = [
-    { label: 'CST origem = 6 (CAMEX)?', ok: camexOrig, regra: 'CK12A' },
-    { label: 'NCM na lista CAMEX?', ok: camexNCM, regra: 'CK12B' },
-    { label: 'Destinatario e Simples Nacional?', ok: isSN, regra: 'CK12C' },
-    { label: 'Destinatario e nao contribuinte?', ok: !isNC, regra: 'CK12D' },
+    { label: 'CST origem = 6 (CAMEX)?', severity: assignOrSeverity(camexOrig, anyOrPassed), regra: 'CK12A' },
+    { label: 'NCM na lista CAMEX?', severity: assignOrSeverity(camexNCM, anyOrPassed), regra: 'CK12B' },
+    { label: 'Destinatario e Simples Nacional?', severity: assignOrSeverity(isSN, anyOrPassed), regra: 'CK12C' },
+    { label: 'Destinatario NÃO e nao-contribuinte?', severity: assignMandatorySeverity(mandatoryOk), regra: 'CK12D' },
   ];
 
-  const hasJustification = camexOrig || camexNCM || isSN;
+  const hasJustification = mandatoryOk && anyOrPassed;
   return { checks, hasJustification };
 }
 
@@ -57,22 +72,36 @@ function crossChecks10(
   dest: DestData,
   config: AppConfig,
   cenario: CenarioConfig,
+  cnpjInfoMap?: Map<string, CnpjInfo>,
 ): { checks: CrossCheck[]; hasJustification: boolean } {
   const isInterna = dest.uf.toUpperCase() === 'SC';
   const isIndustrial = !!dest.cnpj && config.listaIndustriais.includes(dest.cnpj);
   const isSN = !!dest.cnpj && config.listaSN.includes(dest.cnpj);
   const isNC = dest.indIEDest === '9';
 
+  // CK10E: CNAE de atividade industrial (da CNPJa)
+  let cnaeIndustrial = false;
+  if (dest.cnpj && cnpjInfoMap) {
+    const info = cnpjInfoMap.get(dest.cnpj.replace(/\D/g, ''));
+    if (info) cnaeIndustrial = info.isIndustrial;
+  }
+
+  // OR (para B3): industrial OU CNAE industrial
+  const anyOrPassed = cenario.id === 'B3' ? (isIndustrial || cnaeIndustrial) : true;
+
+  // Mandatory: interna, NOT SN, NOT NC
   const checks: CrossCheck[] = [
-    { label: 'Remessa interna (SC para SC)?', ok: isInterna, regra: 'CK10A' },
-    { label: 'Dest. na lista de industriais?', ok: isIndustrial, regra: 'CK10B' },
-    { label: 'Dest. e optante do Simples Nacional?', ok: !isSN, regra: 'CK10C' },
-    { label: 'Dest. e nao contribuinte?', ok: !isNC, regra: 'CK10D' },
+    { label: 'Remessa interna (SC para SC)?', severity: assignMandatorySeverity(isInterna), regra: 'CK10A' },
+    { label: 'Dest. na lista de industriais?', severity: cenario.id === 'B3' ? assignOrSeverity(isIndustrial, anyOrPassed) : assignMandatorySeverity(isIndustrial), regra: 'CK10B' },
+    { label: 'CNAE de atividade industrial?', severity: cenario.id === 'B3' ? assignOrSeverity(cnaeIndustrial, anyOrPassed) : assignOrSeverity(cnaeIndustrial, cnaeIndustrial), regra: 'CK10E' },
+    { label: 'Dest. NÃO e optante do Simples Nacional?', severity: assignMandatorySeverity(!isSN), regra: 'CK10C' },
+    { label: 'Dest. NÃO e nao-contribuinte?', severity: assignMandatorySeverity(!isNC), regra: 'CK10D' },
   ];
 
+  const mandatoryOk = isInterna && !isSN && !isNC;
   const hasJustification = cenario.id === 'B3'
-    ? (isInterna && isIndustrial && !isSN && !isNC)
-    : (isInterna && !isSN && !isNC);
+    ? (mandatoryOk && anyOrPassed)
+    : (mandatoryOk);
 
   return { checks, hasJustification };
 }
@@ -88,13 +117,15 @@ function crossChecks04(
   const cstOrig1 = item.cstOrig === '1';
   const isB4 = cenario.id === 'B4';
 
+  // All mandatory (AND logic)
+  const snOk = isB4 || !isSN;
+
   const checks: CrossCheck[] = [
-    { label: 'Dest. e optante do Simples Nacional?', ok: isB4 ? true : !isSN, regra: 'CK04A' },
-    { label: 'CST origem = 6 (deveria ser 12%)?', ok: !cstOrig6, regra: 'CK04B' },
-    { label: 'CST origem = 1 (importado com similar)?', ok: cstOrig1, regra: 'CK04C' },
+    { label: 'Dest. NÃO e optante do Simples Nacional?', severity: assignMandatorySeverity(snOk), regra: 'CK04A' },
+    { label: 'CST origem ≠ 6 (deveria ser 12%)?', severity: assignMandatorySeverity(!cstOrig6), regra: 'CK04B' },
+    { label: 'CST origem = 1 (importado com similar)?', severity: assignMandatorySeverity(cstOrig1), regra: 'CK04C' },
   ];
 
-  const snOk = isB4 || !isSN;
   const hasJustification = snOk && !cstOrig6 && cstOrig1;
   return { checks, hasJustification };
 }
@@ -103,19 +134,24 @@ function crossChecks17(
   item: ItemData,
   dest: DestData,
   config: AppConfig,
-): { checks: CrossCheck[]; hasJustification: boolean } {
+): { checks: CrossCheck[]; hasJustification: boolean; snOnly: boolean } {
   const bcReduzida = isBCReduzida(item);
   const isSN = !!dest.cnpj && config.listaSN.includes(dest.cnpj);
   const isNC = dest.indIEDest === '9';
 
+  // OR: BC reduzida | SN (fraco) | NC
+  const anyOrPassed = bcReduzida || isSN || isNC;
+  // SN sozinho como única justificativa → atenção
+  const snOnly = !bcReduzida && !isNC && isSN;
+
   const checks: CrossCheck[] = [
-    { label: 'Base de calculo e reduzida?', ok: bcReduzida, regra: 'CK17A' },
-    { label: 'Destinatario e Simples Nacional?', ok: isSN, regra: 'CK17B' },
-    { label: 'Destinatario e nao contribuinte?', ok: isNC, regra: 'CK17C' },
+    { label: 'Base de calculo e reduzida?', severity: assignOrSeverity(bcReduzida, anyOrPassed), regra: 'CK17A' },
+    { label: 'Destinatario e Simples Nacional?', severity: snOnly ? 'atencao' : assignOrSeverity(isSN, anyOrPassed), regra: 'CK17B' },
+    { label: 'Destinatario e nao-contribuinte?', severity: assignOrSeverity(isNC, anyOrPassed), regra: 'CK17C' },
   ];
 
-  const hasJustification = bcReduzida || isSN || isNC;
-  return { checks, hasJustification };
+  const hasJustification = anyOrPassed;
+  return { checks, hasJustification, snOnly };
 }
 
 // ----- Função principal -----
@@ -125,6 +161,7 @@ export function validarAliquota(
   cenario: CenarioConfig,
   dest: DestData,
   config: AppConfig,
+  cnpjInfoMap?: Map<string, CnpjInfo>,
 ): AliquotaResult {
   const found = item.pICMS;
 
@@ -162,12 +199,12 @@ export function validarAliquota(
   const matches = aceitas.some(a => Math.abs(a - found) < 0.01);
 
   if (matches) {
-    let crossResult: { checks: CrossCheck[]; hasJustification: boolean } | null = null;
+    let crossResult: { checks: CrossCheck[]; hasJustification: boolean; snOnly?: boolean } | null = null;
 
     if (Math.abs(found - 12) < 0.01) {
       crossResult = crossChecks12(item, dest, config);
     } else if (Math.abs(found - 10) < 0.01) {
-      crossResult = crossChecks10(item, dest, config, cenario);
+      crossResult = crossChecks10(item, dest, config, cenario, cnpjInfoMap);
     } else if (Math.abs(found - 4) < 0.01) {
       crossResult = crossChecks04(item, dest, config, cenario);
     } else if (Math.abs(found - 17) < 0.01) {
@@ -180,6 +217,19 @@ export function validarAliquota(
           status: 'ALERTA',
           mensagem: `Aliquota ${found}% aceita para cenario ${cenario.id}, mas verificacoes adicionais apresentam divergencias.`,
           regra: 'AL02',
+          cenario: cenario.id,
+        },
+        crossChecks: crossResult.checks,
+      };
+    }
+
+    // 17% com SN como única justificativa → ALERTA
+    if (crossResult && crossResult.snOnly) {
+      return {
+        result: {
+          status: 'ALERTA',
+          mensagem: `Aliquota ${found}% aceita para cenario ${cenario.id}, porem justificativa somente por Simples Nacional (verificar).`,
+          regra: 'AL07',
           cenario: cenario.id,
         },
         crossChecks: crossResult.checks,
@@ -202,7 +252,7 @@ export function validarAliquota(
   if (Math.abs(found - 12) < 0.01) {
     checks = crossChecks12(item, dest, config).checks;
   } else if (Math.abs(found - 10) < 0.01) {
-    checks = crossChecks10(item, dest, config, cenario).checks;
+    checks = crossChecks10(item, dest, config, cenario, cnpjInfoMap).checks;
   } else if (Math.abs(found - 4) < 0.01) {
     checks = crossChecks04(item, dest, config, cenario).checks;
   } else if (Math.abs(found - 17) < 0.01) {

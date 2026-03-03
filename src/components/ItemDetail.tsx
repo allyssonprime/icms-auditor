@@ -1,4 +1,4 @@
-import type { ItemValidation } from '../types/validation.ts';
+import type { ItemValidation, CrossCheckSeverity } from '../types/validation.ts';
 import { CENARIOS } from '../engine/cenarios.ts';
 import { formatNCM } from '../utils/formatters.ts';
 
@@ -16,6 +16,24 @@ const dotColors: Record<string, string> = {
   OK: 'bg-green-500',
   ALERTA: 'bg-yellow-400',
   ERRO: 'bg-red-500',
+};
+
+const severityIcon: Record<CrossCheckSeverity, string> = {
+  ok: '\u2713',
+  atencao: '\u26A0',
+  divergente: '\u2717',
+};
+
+const severityColor: Record<CrossCheckSeverity, string> = {
+  ok: 'text-green-600',
+  atencao: 'text-yellow-600',
+  divergente: 'text-red-500',
+};
+
+const severityLabelColor: Record<CrossCheckSeverity, string> = {
+  ok: 'text-gray-600',
+  atencao: 'text-yellow-700 font-medium',
+  divergente: 'text-red-700 font-medium',
 };
 
 function findResult(iv: ItemValidation, prefix: string) {
@@ -69,6 +87,8 @@ export function ItemDetail({ iv }: ItemDetailProps) {
 
   const nonOkResults = iv.resultados.filter(r => r.status !== 'OK');
 
+  const hasCP = !!iv.item.cCredPresumido;
+
   return (
     <div className={`rounded-lg border p-3 mb-2 ${statusBg[iv.statusFinal] ?? 'bg-gray-50 border-gray-200'}`}>
       {/* Header */}
@@ -79,6 +99,11 @@ export function ItemDetail({ iv }: ItemDetailProps) {
         </span>
         <span className="font-mono text-sm text-gray-600">{formatNCM(iv.item.ncm)}</span>
         <span className="text-xs text-gray-500 truncate">{iv.item.descricao}</span>
+        {hasCP && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium shrink-0">
+            CP {iv.item.cCredPresumido}
+          </span>
+        )}
       </div>
 
       {/* Cenário */}
@@ -147,6 +172,17 @@ export function ItemDetail({ iv }: ItemDetailProps) {
               </td>
               <td className="px-2.5 py-1.5"></td>
             </tr>
+            {hasCP && (
+              <tr className="bg-purple-50/50">
+                <td className="px-2.5 py-1.5 text-purple-700 font-medium">Cred. Pres.</td>
+                <td className="px-2.5 py-1.5 font-mono text-purple-700">
+                  CP {iv.item.cCredPresumido}
+                  {iv.item.pCredPresumido > 0 && ` (${iv.item.pCredPresumido}%)`}
+                  {iv.item.vCredPresumido > 0 && ` = ${iv.item.vCredPresumido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`}
+                </td>
+                <td className="px-2.5 py-1.5"></td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -170,7 +206,7 @@ export function ItemDetail({ iv }: ItemDetailProps) {
         </div>
       )}
 
-      {/* Cross-check checklist */}
+      {/* Cross-check checklist with 3-level severity */}
       {iv.crossChecks.length > 0 && (
         <div className="ml-[18px] mt-2">
           <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1">
@@ -179,10 +215,10 @@ export function ItemDetail({ iv }: ItemDetailProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
             {iv.crossChecks.map((ck, idx) => (
               <div key={idx} className="flex items-center gap-1.5 text-xs py-0.5">
-                <span className={`shrink-0 w-4 text-center font-bold ${ck.ok ? 'text-green-600' : 'text-red-500'}`}>
-                  {ck.ok ? '\u2713' : '\u2717'}
+                <span className={`shrink-0 w-4 text-center font-bold ${severityColor[ck.severity]}`}>
+                  {severityIcon[ck.severity]}
                 </span>
-                <span className={ck.ok ? 'text-gray-600' : 'text-red-700 font-medium'}>
+                <span className={severityLabelColor[ck.severity]}>
                   {ck.label}
                 </span>
               </div>

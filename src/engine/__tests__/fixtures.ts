@@ -19,6 +19,9 @@ export function makeItem(overrides: Partial<ItemData> = {}): ItemData {
     pRedBC: 0,
     vBCST: 0,
     vICMSST: 0,
+    cCredPresumido: '',
+    pCredPresumido: 0,
+    vCredPresumido: 0,
     ...overrides,
   };
 }

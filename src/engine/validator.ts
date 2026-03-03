@@ -1,5 +1,5 @@
 import type { NfeData, ItemData } from '../types/nfe.ts';
-import type { NfeValidation, ItemValidation, ValidationResult, StatusType, CrossCheck } from '../types/validation.ts';
+import type { NfeValidation, ItemValidation, ValidationResult, StatusType, CrossCheck, CnpjInfo } from '../types/validation.ts';
 import type { AppConfig } from '../types/config.ts';
 import { verificarVedacoes } from './vedacoes.ts';
 import { classificarCenario } from './classifier.ts';
@@ -18,6 +18,7 @@ function validarItem(
   nfe: NfeData,
   item: ItemData,
   config: AppConfig,
+  cnpjInfoMap?: Map<string, CnpjInfo>,
 ): ItemValidation {
   const resultados: ValidationResult[] = [];
   let crossChecks: CrossCheck[] = [];
@@ -33,7 +34,7 @@ function validarItem(
 
   if (!bloqueado && cenario) {
     // Etapa 3: Validar alíquota + cross-checks
-    const aliqResult = validarAliquota(item, cenario, nfe.dest, config);
+    const aliqResult = validarAliquota(item, cenario, nfe.dest, config, cnpjInfoMap);
     resultados.push(aliqResult.result);
     crossChecks = aliqResult.crossChecks;
     // Etapa 4: Validar CST
@@ -60,8 +61,12 @@ function validarItem(
   return { item, cenario: cenarioId, resultados, crossChecks, statusFinal };
 }
 
-export function validarNfe(nfe: NfeData, config: AppConfig): NfeValidation {
-  const itensValidados = nfe.itens.map(item => validarItem(nfe, item, config));
+export function validarNfe(
+  nfe: NfeData,
+  config: AppConfig,
+  cnpjInfoMap?: Map<string, CnpjInfo>,
+): NfeValidation {
+  const itensValidados = nfe.itens.map(item => validarItem(nfe, item, config, cnpjInfoMap));
 
   const statusFinal = resolveStatus(
     itensValidados.flatMap(iv => iv.resultados),

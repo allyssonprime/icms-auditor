@@ -71,6 +71,23 @@ function parseItem(det: Element): ItemData {
 
   const cst = cstOrig + cstTrib;
 
+  // Parse gCred (Credito Presumido) - pode estar em imposto ou dentro de ICMS
+  let cCredPresumido = '';
+  let pCredPresumido = 0;
+  let vCredPresumido = 0;
+  const gCredElements = det.getElementsByTagName('gCred');
+  if (gCredElements.length > 0) {
+    const gCred = gCredElements[0]!;
+    cCredPresumido = getText(gCred, 'cCredPresumido');
+    pCredPresumido = getNumber(gCred, 'pCredPresumido');
+    vCredPresumido = getNumber(gCred, 'vCredPresumido');
+  } else {
+    // Fallback: buscar tags diretamente no det
+    cCredPresumido = getText(det, 'cCredPresumido');
+    pCredPresumido = getNumber(det, 'pCredPresumido');
+    vCredPresumido = getNumber(det, 'vCredPresumido');
+  }
+
   return {
     nItem,
     descricao,
@@ -85,6 +102,9 @@ function parseItem(det: Element): ItemData {
     pRedBC,
     vBCST,
     vICMSST,
+    cCredPresumido,
+    pCredPresumido,
+    vCredPresumido,
   };
 }
 

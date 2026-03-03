@@ -15,26 +15,77 @@ const statusBadge: Record<string, string> = {
   ERRO: 'bg-red-100 text-red-700',
 };
 
-function matchesFilters(v: NfeValidation, filters: ActiveFilters): boolean {
+function matchesFilters(v: NfeValidation, filters: ActiveFilters, cnpjInfoMap?: Map<string, CnpjInfo>): boolean {
   const hasAny =
     filters.aliquota.size > 0 ||
     filters.cst.size > 0 ||
     filters.cfop.size > 0 ||
     filters.cenario.size > 0 ||
-    filters.status.size > 0;
+    filters.status.size > 0 ||
+    filters.vedado.size > 0 ||
+    filters.creditoPresumido.size > 0 ||
+    filters.tipoOperacao.size > 0 ||
+    filters.searchText.length > 0;
 
   if (!hasAny) return true;
+
+  // Text search: match against CNPJ, IE, razao social, emitente
+  if (filters.searchText.length > 0) {
+    const q = filters.searchText.toLowerCase().replace(/[.\-/]/g, '');
+    const destCnpj = (v.nfe.dest.cnpj ?? '').replace(/\D/g, '');
+    const destIe = (v.nfe.dest.ie ?? '').replace(/\D/g, '');
+    const destNome = v.nfe.dest.nome.toLowerCase();
+    const emitCnpj = v.nfe.emitCnpj.replace(/\D/g, '');
+    const emitNome = v.nfe.emitNome.toLowerCase();
+    const numero = v.nfe.numero;
+
+    const info = v.nfe.dest.cnpj ? cnpjInfoMap?.get(v.nfe.dest.cnpj.replace(/\D/g, '')) : undefined;
+    const razaoSocial = (info?.razaoSocial ?? '').toLowerCase();
+
+    const match =
+      destCnpj.includes(q) ||
+      destIe.includes(q) ||
+      destNome.includes(q) ||
+      emitCnpj.includes(q) ||
+      emitNome.includes(q) ||
+      numero.includes(q) ||
+      razaoSocial.includes(q);
+
+    if (!match) return false;
+  }
 
   // Status filter applies at NF level
   if (filters.status.size > 0 && !filters.status.has(v.statusFinal)) return false;
 
-  // Item-level filters: at least one item must match all active item filters
-  if (filters.aliquota.size > 0 || filters.cst.size > 0 || filters.cfop.size > 0 || filters.cenario.size > 0) {
+  // Tipo operacao filter at NF level
+  if (filters.tipoOperacao.size > 0) {
+    const tipo = v.nfe.dest.uf.toUpperCase() === 'SC' ? 'Interna' : 'Interestadual';
+    if (!filters.tipoOperacao.has(tipo)) return false;
+  }
+
+  // Item-level filters
+  const hasItemFilters =
+    filters.aliquota.size > 0 ||
+    filters.cst.size > 0 ||
+    filters.cfop.size > 0 ||
+    filters.cenario.size > 0 ||
+    filters.vedado.size > 0 ||
+    filters.creditoPresumido.size > 0;
+
+  if (hasItemFilters) {
     return v.itensValidados.some(iv => {
       if (filters.aliquota.size > 0 && !filters.aliquota.has(iv.item.pICMS)) return false;
       if (filters.cst.size > 0 && !filters.cst.has(iv.item.cst)) return false;
       if (filters.cfop.size > 0 && !filters.cfop.has(iv.item.cfop)) return false;
       if (filters.cenario.size > 0 && !filters.cenario.has(iv.cenario)) return false;
+      if (filters.vedado.size > 0) {
+        const isVedado = iv.cenario === 'VEDADO' ? 'Sim' : 'Nao';
+        if (!filters.vedado.has(isVedado)) return false;
+      }
+      if (filters.creditoPresumido.size > 0) {
+        const cpKey = iv.item.cCredPresumido ? `CP ${iv.item.cCredPresumido}` : 'Sem CP';
+        if (!filters.creditoPresumido.has(cpKey)) return false;
+      }
       return true;
     });
   }
@@ -46,7 +97,7 @@ export function NfeListView({ results, filters, cnpjInfoMap }: NfeListViewProps)
   const [view, setView] = useState<'table' | 'cards'>('table');
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
 
-  const filtered = results.filter(v => matchesFilters(v, filters));
+  const filtered = results.filter(v => matchesFilters(v, filters, cnpjInfoMap));
 
   if (results.length === 0) return null;
 
@@ -113,6 +164,7 @@ export function NfeListView({ results, filters, cnpjInfoMap }: NfeListViewProps)
                         </span>
                         {(() => {
                           const info = v.nfe.dest.cnpj ? cnpjInfoMap?.get(v.nfe.dest.cnpj.replace(/\D/g, '')) : undefined;
+                          const isNC = v.nfe.dest.indIEDest === '9';
                           return (
                             <>
                               {info?.simplesOptante === true && (
@@ -120,6 +172,9 @@ export function NfeListView({ results, filters, cnpjInfoMap }: NfeListViewProps)
                               )}
                               {info?.isIndustrial && (
                                 <span className="text-[9px] px-1 py-0.5 rounded bg-blue-100 text-blue-700 font-medium shrink-0">Ind</span>
+                              )}
+                              {isNC && (
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-gray-200 text-gray-700 font-medium shrink-0">NC</span>
                               )}
                             </>
                           );
