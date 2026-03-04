@@ -25,7 +25,7 @@ function validarItem(
   let crossChecks: CrossCheck[] = [];
 
   // Etapa 1: Vedações (bloqueante)
-  const vedacoes = verificarVedacoes(item, config);
+  const vedacoes = verificarVedacoes(item, nfe, config);
   resultados.push(...vedacoes);
   const bloqueado = vedacoes.some(v => v.status === 'ERRO');
 

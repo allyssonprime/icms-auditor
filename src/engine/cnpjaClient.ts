@@ -61,9 +61,11 @@ function isIndustrialByDescription(desc: string): boolean {
   return INDUSTRIAL_KEYWORDS.some(kw => lower.includes(kw));
 }
 
-function checkIndustrial(allCnaes: string[], allDescriptions: string[]): boolean {
-  if (allCnaes.some(isIndustrialByCode)) return true;
-  if (allDescriptions.some(isIndustrialByDescription)) return true;
+// Verifica apenas pelo CNAE principal (e sua descrição) para evitar falsos positivos
+// com CNAEs secundários de comércio/serviços que têm atividade industrial secundária
+function checkIndustrial(primaryCnae: string, primaryDesc: string): boolean {
+  if (isIndustrialByCode(primaryCnae)) return true;
+  if (isIndustrialByDescription(primaryDesc)) return true;
   return false;
 }
 
@@ -171,9 +173,7 @@ function parseResponse(cnpj: string, data: Record<string, unknown>): CnpjInfo {
     if (desc) descSecundarias.push(desc);
   }
 
-  const allCnaes = [cnaePrincipal, ...cnaesSecundarios].filter(Boolean);
-  const allDescs = [cnaeDescricao, ...descSecundarias].filter(Boolean);
-  const isIndustrial = checkIndustrial(allCnaes, allDescs);
+  const isIndustrial = checkIndustrial(cnaePrincipal, cnaeDescricao);
 
   return {
     cnpj,

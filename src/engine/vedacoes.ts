@@ -1,8 +1,8 @@
-import type { ItemData } from '../types/nfe.ts';
+import type { ItemData, NfeData } from '../types/nfe.ts';
 import type { ValidationResult } from '../types/validation.ts';
 import type { AppConfig } from '../types/config.ts';
 
-export function verificarVedacoes(item: ItemData, config: AppConfig): ValidationResult[] {
+export function verificarVedacoes(item: ItemData, nfe: NfeData, config: AppConfig): ValidationResult[] {
   const results: ValidationResult[] = [];
   const normalizedNcm = item.ncm.replace(/\./g, '');
 
@@ -10,11 +10,25 @@ export function verificarVedacoes(item: ItemData, config: AppConfig): Validation
   for (const prefix of config.decreto2128) {
     const normalizedPrefix = prefix.replace(/\./g, '');
     if (normalizedNcm.startsWith(normalizedPrefix)) {
-      results.push({
-        status: 'ERRO',
-        mensagem: `NCM ${item.ncm} vedada pelo Decreto 2.128. TTD não pode ser aplicado.`,
-        regra: 'V01',
-      });
+      // Exceção: operação interna SC×SC com alíquota 12%+ e sem crédito presumido
+      // → empresa não está usando o TTD, apenas ALERTA
+      const isInternaSC = nfe.emitUF === 'SC' && nfe.dest.uf === 'SC';
+      const aliquotaAlta = item.pICMS >= 12;
+      const semCP = !item.cCredPresumido;
+
+      if (isInternaSC && aliquotaAlta && semCP) {
+        results.push({
+          status: 'ALERTA',
+          mensagem: `NCM ${item.ncm} consta no Decreto 2.128, porém operação interna SC com alíquota ${item.pICMS}% sem crédito presumido — verificar se TTD está sendo utilizado.`,
+          regra: 'V01-EXC',
+        });
+      } else {
+        results.push({
+          status: 'ERRO',
+          mensagem: `NCM ${item.ncm} vedada pelo Decreto 2.128. TTD não pode ser aplicado.`,
+          regra: 'V01',
+        });
+      }
       break;
     }
   }

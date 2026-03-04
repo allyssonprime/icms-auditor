@@ -56,16 +56,24 @@ describe('isIndustrialByDescription', () => {
   });
 });
 
-describe('checkIndustrial', () => {
-  it('should return true if any CNAE code is industrial', () => {
-    expect(checkIndustrial(['4711301', '2822401'], ['Comercio', 'Maquinas'])).toBe(true);
+describe('checkIndustrial (primary CNAE only)', () => {
+  it('should return true if primary CNAE code is industrial', () => {
+    expect(checkIndustrial('2822401', 'Maquinas')).toBe(true);
   });
 
-  it('should return true if any description matches industrial keywords', () => {
-    expect(checkIndustrial(['4711301'], ['Fabricação de pecas metalicas'])).toBe(true);
+  it('should return true if primary description matches industrial keywords', () => {
+    expect(checkIndustrial('4711301', 'Fabricação de pecas metalicas')).toBe(true);
   });
 
-  it('should return false if neither code nor description matches', () => {
-    expect(checkIndustrial(['4711301'], ['Comercio varejista'])).toBe(false);
+  it('should return false if primary code and description are non-industrial', () => {
+    expect(checkIndustrial('4711301', 'Comercio varejista')).toBe(false);
+  });
+
+  it('should not flag comércio atacadista (CNAE 46) as industrial', () => {
+    expect(checkIndustrial('4665600', 'Comércio atacadista de máquinas e equipamentos')).toBe(false);
+  });
+
+  it('should not flag serviços (CNAE 82) as industrial', () => {
+    expect(checkIndustrial('8211300', 'Serviços combinados de escritório e apoio administrativo')).toBe(false);
   });
 });
