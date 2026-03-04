@@ -221,6 +221,9 @@ export function ItemDetail({ iv }: ItemDetailProps) {
                 <span className={severityLabelColor[ck.severity]}>
                   {ck.label}
                 </span>
+                <span className={`font-bold ml-1 ${ck.passed ? 'text-green-600' : 'text-red-500'}`}>
+                  {ck.passed ? 'SIM' : 'NÃO'}
+                </span>
               </div>
             ))}
           </div>
