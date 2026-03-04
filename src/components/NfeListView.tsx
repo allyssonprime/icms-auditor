@@ -4,14 +4,6 @@ import { NfeCard } from './NfeCard.tsx';
 import { formatCNPJ, formatCurrency } from '../utils/formatters.ts';
 import { isNaoContribuinte } from '../engine/aliquota.ts';
 
-function formatDhEmi(dhEmi: string): string {
-  if (!dhEmi) return '-';
-  try {
-    const d = new Date(dhEmi);
-    return d.toLocaleDateString('pt-BR');
-  } catch { return dhEmi; }
-}
-
 interface NfeListViewProps {
   results: NfeValidation[];
   filters: ActiveFilters;
@@ -105,16 +97,6 @@ function matchesFilters(v: NfeValidation, filters: ActiveFilters, cnpjInfoMap?: 
 export function NfeListView({ results, filters, cnpjInfoMap }: NfeListViewProps) {
   const [view, setView] = useState<'table' | 'cards'>('table');
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
-  const [checkedNfes, setCheckedNfes] = useState<Set<string>>(new Set());
-
-  const toggleChecked = (chave: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCheckedNfes(prev => {
-      const next = new Set(prev);
-      if (next.has(chave)) next.delete(chave); else next.add(chave);
-      return next;
-    });
-  };
 
   const filtered = results.filter(v => matchesFilters(v, filters, cnpjInfoMap));
 
@@ -153,12 +135,9 @@ export function NfeListView({ results, filters, cnpjInfoMap }: NfeListViewProps)
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="text-center px-2 py-2 font-medium text-gray-600 w-8" title="Verificado">&#10003;</th>
                   <th className="text-left px-3 py-2 font-medium text-gray-600">NF</th>
-                  <th className="text-left px-3 py-2 font-medium text-gray-600">Emissão</th>
                   <th className="text-left px-3 py-2 font-medium text-gray-600">Emitente</th>
-                  <th className="text-left px-3 py-2 font-medium text-gray-600">Destinatário</th>
-                  <th className="text-left px-3 py-2 font-medium text-gray-600">Razão Social</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600">Destinatario</th>
                   <th className="text-left px-3 py-2 font-medium text-gray-600">UF</th>
                   <th className="text-right px-3 py-2 font-medium text-gray-600">Itens</th>
                   <th className="text-right px-3 py-2 font-medium text-gray-600">BC ICMS</th>
@@ -167,27 +146,13 @@ export function NfeListView({ results, filters, cnpjInfoMap }: NfeListViewProps)
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((v, idx) => {
-                  const chave = v.nfe.chaveAcesso;
-                  const checked = checkedNfes.has(chave);
-                  return (
+                {filtered.map((v, idx) => (
                   <tr
                     key={idx}
                     onClick={() => setSelectedIdx(selectedIdx === idx ? null : idx)}
-                    className={`cursor-pointer hover:bg-blue-50 border-t border-gray-100 ${selectedIdx === idx ? 'bg-blue-50' : ''} ${checked ? 'bg-green-50/50' : ''}`}
+                    className={`cursor-pointer hover:bg-blue-50 border-t border-gray-100 ${selectedIdx === idx ? 'bg-blue-50' : ''}`}
                   >
-                    <td className="px-2 py-2 text-center">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onClick={(e) => toggleChecked(chave, e)}
-                        onChange={() => {}}
-                        className="w-3.5 h-3.5 rounded border-gray-300 text-green-600 cursor-pointer"
-                        title="Marcar como verificado"
-                      />
-                    </td>
                     <td className="px-3 py-2 font-mono font-medium">{v.nfe.numero}</td>
-                    <td className="px-3 py-2 text-gray-500 font-mono">{formatDhEmi(v.nfe.dhEmi)}</td>
                     <td className="px-3 py-2">
                       <div className="truncate max-w-[150px]" title={v.nfe.emitNome}>
                         {v.nfe.emitCnpj ? formatCNPJ(v.nfe.emitCnpj) : '-'}
@@ -217,11 +182,6 @@ export function NfeListView({ results, filters, cnpjInfoMap }: NfeListViewProps)
                         })()}
                       </div>
                     </td>
-                    <td className="px-3 py-2">
-                      <div className="truncate max-w-[180px]" title={v.nfe.dest.nome}>
-                        {v.nfe.dest.nome || '-'}
-                      </div>
-                    </td>
                     <td className="px-3 py-2">{v.nfe.dest.uf}</td>
                     <td className="px-3 py-2 text-right">{v.itensValidados.length}</td>
                     <td className="px-3 py-2 text-right">{formatCurrency(v.totalBC)}</td>
@@ -232,8 +192,7 @@ export function NfeListView({ results, filters, cnpjInfoMap }: NfeListViewProps)
                       </span>
                     </td>
                   </tr>
-                  );
-                })}
+                ))}
               </tbody>
             </table>
           </div>

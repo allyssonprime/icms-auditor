@@ -4,7 +4,6 @@ export interface NfeData {
   serie: string;
   natOp: string;
   tpNF: string;
-  dhEmi: string;
   emitCnpj: string;
   emitNome: string;
   emitUF: string;

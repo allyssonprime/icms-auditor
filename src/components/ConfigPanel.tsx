@@ -95,11 +95,6 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
             placeholder="84713019&#10;85176239"
           />
           <ConfigTextarea
-            label="Aço/Cobre — NCMs (prefixos 2+ dígitos, um por linha)"
-            value={listaCobreAco}
-            onChange={setListaCobreAco}
-            placeholder="72&#10;73&#10;74&#10;7106"
-            hint={`${textToNcmListShort(listaCobreAco).length} prefixos cadastrados. 4% + aço/cobre = 0,6% recolhimento.`}
             label="Aco/Cobre — NCMs (prefixos 2+ digitos, um por linha)"
             value={listaCobreAco}
             onChange={setListaCobreAco}

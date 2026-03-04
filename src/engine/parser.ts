@@ -132,7 +132,6 @@ export function parseNfe(xmlString: string, fileName: string = ''): ParseResult 
     const serie = ide ? getText(ide, 'serie') : '';
     const natOp = ide ? getText(ide, 'natOp') : '';
     const tpNF = ide ? getText(ide, 'tpNF') : '1';
-    const dhEmi = ide ? getText(ide, 'dhEmi') : '';
 
     const emit = doc.getElementsByTagName('emit')[0];
     const emitCnpj = emit ? getText(emit, 'CNPJ') : '';
@@ -163,7 +162,6 @@ export function parseNfe(xmlString: string, fileName: string = ''): ParseResult 
         serie,
         natOp,
         tpNF,
-        dhEmi,
         emitCnpj,
         emitNome,
         emitUF,
