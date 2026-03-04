@@ -158,6 +158,7 @@ export function NfeListView({ results, filters, cnpjInfoMap }: NfeListViewProps)
                   <th className="text-left px-3 py-2 font-medium text-gray-600">Emissão</th>
                   <th className="text-left px-3 py-2 font-medium text-gray-600">Emitente</th>
                   <th className="text-left px-3 py-2 font-medium text-gray-600">Destinatário</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600">Razão Social</th>
                   <th className="text-left px-3 py-2 font-medium text-gray-600">UF</th>
                   <th className="text-right px-3 py-2 font-medium text-gray-600">Itens</th>
                   <th className="text-right px-3 py-2 font-medium text-gray-600">BC ICMS</th>
@@ -214,6 +215,11 @@ export function NfeListView({ results, filters, cnpjInfoMap }: NfeListViewProps)
                             </>
                           );
                         })()}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="truncate max-w-[180px]" title={v.nfe.dest.nome}>
+                        {v.nfe.dest.nome || '-'}
                       </div>
                     </td>
                     <td className="px-3 py-2">{v.nfe.dest.uf}</td>

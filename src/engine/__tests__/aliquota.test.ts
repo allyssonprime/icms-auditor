@@ -348,6 +348,20 @@ describe('12%+ sem crédito presumido → ALERTA', () => {
     expect(result.status).toBe('OK');
   });
 
+  it('12% sem CP mas CST 20 + pRedBC → OK (BC reduzida justifica)', () => {
+    const item = makeItem({ pICMS: 12, cstOrig: '6', cst: '620', cCredPresumido: '', pRedBC: 50 });
+    const dest = makeDest({ uf: 'SC', indIEDest: '1' });
+    const { result } = validarAliquota(item, CENARIOS['B2']!, dest, makeConfig());
+    expect(result.status).toBe('OK');
+  });
+
+  it('17% sem CP mas CST 20 + pRedBC → OK (BC reduzida justifica)', () => {
+    const item = makeItem({ pICMS: 17, cst: '020', cCredPresumido: '', pRedBC: 41.18 });
+    const dest = makeDest({ uf: 'SC', indIEDest: '1' });
+    const { result } = validarAliquota(item, CENARIOS['B5']!, dest, makeConfig());
+    expect(result.status).toBe('OK');
+  });
+
   it('4% sem CP → OK (abaixo de 12%)', () => {
     const item = makeItem({ pICMS: 4, cstOrig: '1', cst: '151', cCredPresumido: '' });
     const dest = makeDest({ uf: 'SC', indIEDest: '1' });

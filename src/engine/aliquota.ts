@@ -247,7 +247,9 @@ export function validarAliquota(
     }
 
     // 12%+ sem crédito presumido → ALERTA (atenção), apenas quando cenário espera CP
-    if (found >= 12 && !item.cCredPresumido && cenario.temCP) {
+    // Exceção: CST tributação 20 + pRedBC → BC reduzida justifica a alíquota
+    const bcReduzidaJustifica = isBCReduzida(item);
+    if (found >= 12 && !item.cCredPresumido && cenario.temCP && !bcReduzidaJustifica) {
       return {
         result: {
           status: 'ALERTA',
