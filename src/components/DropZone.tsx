@@ -14,7 +14,7 @@ export function DropZone({ onFiles, isProcessing }: DropZoneProps) {
       e.preventDefault();
       setIsDragOver(false);
       const files = Array.from(e.dataTransfer.files).filter(f =>
-        f.name.toLowerCase().endsWith('.xml'),
+        f.name.toLowerCase().endsWith('.xml') || f.name.toLowerCase().endsWith('.zip'),
       );
       if (files.length > 0) onFiles(files);
     },
@@ -36,7 +36,7 @@ export function DropZone({ onFiles, isProcessing }: DropZoneProps) {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []).filter(f =>
-      f.name.toLowerCase().endsWith('.xml'),
+      f.name.toLowerCase().endsWith('.xml') || f.name.toLowerCase().endsWith('.zip'),
     );
     if (files.length > 0) onFiles(files);
     e.target.value = '';
@@ -62,7 +62,7 @@ export function DropZone({ onFiles, isProcessing }: DropZoneProps) {
         ref={inputRef}
         type="file"
         multiple
-        accept=".xml"
+        accept=".xml,.zip"
         className="hidden"
         onChange={handleInputChange}
       />
@@ -74,10 +74,10 @@ export function DropZone({ onFiles, isProcessing }: DropZoneProps) {
         <div>
           <div className="text-4xl mb-3 text-gray-400">&#128462;</div>
           <div className="text-lg font-medium text-gray-700">
-            Arraste XMLs de NF-e aqui
+            Arraste XMLs ou ZIP de NF-e aqui
           </div>
           <div className="text-sm text-gray-500 mt-1">
-            ou clique para selecionar (aceita multiplos arquivos)
+            ou clique para selecionar (aceita XMLs e arquivos .zip)
           </div>
         </div>
       )}

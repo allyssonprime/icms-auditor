@@ -4,6 +4,14 @@ import { ItemDetail } from './ItemDetail.tsx';
 import { formatCNPJ, formatCurrency } from '../utils/formatters.ts';
 import { isNaoContribuinte } from '../engine/aliquota.ts';
 
+function formatDhEmi(dhEmi: string): string {
+  if (!dhEmi) return '-';
+  try {
+    const d = new Date(dhEmi);
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  } catch { return dhEmi; }
+}
+
 interface NfeCardProps {
   validation: NfeValidation;
   cnpjInfoMap?: Map<string, CnpjInfo>;
@@ -46,6 +54,9 @@ export function NfeCard({ validation, cnpjInfoMap }: NfeCardProps) {
             <span className="font-semibold text-gray-800">
               NF {nfe.numero}
             </span>
+            {nfe.dhEmi && (
+              <span className="text-xs text-gray-400 font-mono">{formatDhEmi(nfe.dhEmi)}</span>
+            )}
             <span className="text-sm text-gray-500">
               {nfe.dest.nome} ({nfe.dest.uf})
             </span>
@@ -117,6 +128,10 @@ export function NfeCard({ validation, cnpjInfoMap }: NfeCardProps) {
             <div>
               <span className="font-medium text-gray-700">Chave:</span>{' '}
               <span className="font-mono">{nfe.chaveAcesso}</span>
+            </div>
+            <div>
+              <span className="font-medium text-gray-700">Emissão:</span>{' '}
+              {formatDhEmi(nfe.dhEmi)}
             </div>
             <div>
               <span className="font-medium text-gray-700">Nat. Op.:</span>{' '}

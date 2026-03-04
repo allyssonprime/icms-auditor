@@ -98,9 +98,14 @@ function crossChecks10(
   const anyOrPassed = cenario.id === 'B3' ? (isIndustrial || cnaeIndustrial) : true;
 
   // Mandatory: interna, NOT SN, NOT NC
+  const notSN = !isSN;
+  const notNC = !isNC;
   const checks: CrossCheck[] = [
     { label: 'Remessa interna (SC para SC)?', severity: assignMandatorySeverity(isInterna), passed: isInterna, regra: 'CK10A' },
     { label: 'Dest. na lista de industriais?', severity: cenario.id === 'B3' ? assignOrSeverity(isIndustrial, anyOrPassed) : assignMandatorySeverity(isIndustrial), passed: isIndustrial, regra: 'CK10B' },
+    { label: 'CNAE de atividade industrial?', severity: cenario.id === 'B3' ? assignOrSeverity(cnaeIndustrial, anyOrPassed) : assignOrSeverity(cnaeIndustrial, cnaeIndustrial), passed: cnaeIndustrial, regra: 'CK10E' },
+    { label: 'Dest. NÃO é optante do Simples Nacional?', severity: assignMandatorySeverity(notSN), passed: notSN, regra: 'CK10C' },
+    { label: 'Dest. NÃO é não-contribuinte?', severity: assignMandatorySeverity(notNC), passed: notNC, regra: 'CK10D' },
     { label: 'CNAE é de atividade industrial?', severity: cenario.id === 'B3' ? assignOrSeverity(cnaeIndustrial, anyOrPassed) : assignOrSeverity(cnaeIndustrial, cnaeIndustrial), passed: cnaeIndustrial, regra: 'CK10E' },
     { label: 'Dest. NÃO é optante do Simples Nacional?', severity: assignMandatorySeverity(!isSN), passed: !isSN, regra: 'CK10C' },
     { label: 'Dest. NÃO é não-contribuinte?', severity: assignMandatorySeverity(!isNC), passed: !isNC, regra: 'CK10D' },
@@ -127,9 +132,11 @@ function crossChecks04(
 
   // All mandatory (AND logic)
   const snOk = isB4 || !isSN;
+  const notCstOrig6 = !cstOrig6;
 
   const checks: CrossCheck[] = [
     { label: 'Dest. NÃO é optante do Simples Nacional?', severity: assignMandatorySeverity(snOk), passed: snOk, regra: 'CK04A' },
+    { label: 'CST origem ≠ 6 (deveria ser 12%)?', severity: assignMandatorySeverity(notCstOrig6), passed: notCstOrig6, regra: 'CK04B' },
     { label: 'CST origem ≠ 6 (deveria ser 12%)?', severity: assignMandatorySeverity(!cstOrig6), passed: !cstOrig6, regra: 'CK04B' },
     { label: 'CST origem = 1 (importado com similar)?', severity: assignMandatorySeverity(cstOrig1), passed: cstOrig1, regra: 'CK04C' },
   ];
@@ -177,7 +184,7 @@ export function validarAliquota(
     return {
       result: {
         status: 'OK',
-        mensagem: `Cenario ${cenario.id}: aliquota nao validada (diferimento/transferencia).`,
+        mensagem: `Cenário ${cenario.id}: alíquota não validada (diferimento/transferência).`,
         regra: 'AL00',
         cenario: cenario.id,
       },
@@ -196,7 +203,7 @@ export function validarAliquota(
     return {
       result: {
         status: 'ALERTA',
-        mensagem: 'Aliquota 4% valida, mas opcao 10% disponivel (mais credito para o cliente).',
+        mensagem: 'Alíquota 4% válida, mas opção 10% disponível (mais crédito para o cliente).',
         regra: 'AL06',
         cenario: cenario.id,
       },
@@ -223,7 +230,7 @@ export function validarAliquota(
       return {
         result: {
           status: 'ALERTA',
-          mensagem: `Aliquota ${found}% aceita para cenario ${cenario.id}, mas verificacoes adicionais apresentam divergencias.`,
+          mensagem: `Alíquota ${found}% aceita para cenário ${cenario.id}, mas verificações adicionais apresentam divergências.`,
           regra: 'AL02',
           cenario: cenario.id,
         },
@@ -236,7 +243,7 @@ export function validarAliquota(
       return {
         result: {
           status: 'ALERTA',
-          mensagem: `Aliquota ${found}% aceita para cenario ${cenario.id}, porem justificativa somente por Simples Nacional (verificar).`,
+          mensagem: `Alíquota ${found}% aceita para cenário ${cenario.id}, porém justificativa somente por Simples Nacional (verificar).`,
           regra: 'AL07',
           cenario: cenario.id,
         },
@@ -244,10 +251,25 @@ export function validarAliquota(
       };
     }
 
+    // 12%+ sem crédito presumido → ALERTA (atenção), apenas quando cenário espera CP
+    // Exceção: CST tributação 20 + pRedBC → BC reduzida justifica a alíquota
+    const bcReduzidaJustifica = isBCReduzida(item);
+    if (found >= 12 && !item.cCredPresumido && cenario.temCP && !bcReduzidaJustifica) {
+      return {
+        result: {
+          status: 'ALERTA',
+          mensagem: `Alíquota ${found}% conforme cenário ${cenario.id}, porém sem informação de crédito presumido (verificar).`,
+          regra: 'AL08',
+          cenario: cenario.id,
+        },
+        crossChecks: crossResult?.checks ?? [],
+      };
+    }
+
     return {
       result: {
         status: 'OK',
-        mensagem: `Aliquota ${found}% conforme cenario ${cenario.id}.`,
+        mensagem: `Alíquota ${found}% conforme cenário ${cenario.id}.`,
         regra: 'AL01',
         cenario: cenario.id,
       },
@@ -270,7 +292,7 @@ export function validarAliquota(
   return {
     result: {
       status: 'ERRO',
-      mensagem: `Aliquota ${found}% diverge do esperado para cenario ${cenario.id}. Esperado: ${aceitas.join('% ou ')}%.`,
+      mensagem: `Alíquota ${found}% diverge do esperado para cenário ${cenario.id}. Esperado: ${aceitas.join('% ou ')}%.`,
       regra: 'AL01',
       cenario: cenario.id,
     },

@@ -44,6 +44,7 @@ export function makeNfe(overrides: Partial<NfeData> = {}): NfeData {
     serie: '1',
     natOp: 'Venda de mercadoria',
     tpNF: '1',
+    dhEmi: '2026-01-15T10:00:00-03:00',
     emitCnpj: '00000000000100',
     emitNome: 'Emitente Teste Ltda',
     emitUF: 'SC',
@@ -113,6 +114,7 @@ export function makeSampleXml(opts: {
         <serie>1</serie>
         <natOp>Venda de mercadoria</natOp>
         <tpNF>1</tpNF>
+        <dhEmi>2026-01-15T10:00:00-03:00</dhEmi>
       </ide>
       <emit>
         <CNPJ>00000000000100</CNPJ>
