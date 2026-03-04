@@ -9,6 +9,7 @@ export interface AliquotaResult {
   crossChecks: CrossCheck[];
 }
 
+/** Não-contribuinte: indIEDest=9 OU IE ausente/ISENTA/ISENTO */
 export function isNaoContribuinte(dest: DestData): boolean {
   if (dest.indIEDest === '9') return true;
   if (!dest.ie || dest.ie.trim() === '') return true;
@@ -105,6 +106,9 @@ function crossChecks10(
     { label: 'CNAE de atividade industrial?', severity: cenario.id === 'B3' ? assignOrSeverity(cnaeIndustrial, anyOrPassed) : assignOrSeverity(cnaeIndustrial, cnaeIndustrial), passed: cnaeIndustrial, regra: 'CK10E' },
     { label: 'Dest. NÃO é optante do Simples Nacional?', severity: assignMandatorySeverity(notSN), passed: notSN, regra: 'CK10C' },
     { label: 'Dest. NÃO é não-contribuinte?', severity: assignMandatorySeverity(notNC), passed: notNC, regra: 'CK10D' },
+    { label: 'CNAE é de atividade industrial?', severity: cenario.id === 'B3' ? assignOrSeverity(cnaeIndustrial, anyOrPassed) : assignOrSeverity(cnaeIndustrial, cnaeIndustrial), passed: cnaeIndustrial, regra: 'CK10E' },
+    { label: 'Dest. NÃO é optante do Simples Nacional?', severity: assignMandatorySeverity(!isSN), passed: !isSN, regra: 'CK10C' },
+    { label: 'Dest. NÃO é não-contribuinte?', severity: assignMandatorySeverity(!isNC), passed: !isNC, regra: 'CK10D' },
   ];
 
   const mandatoryOk = isInterna && !isSN && !isNC;
@@ -133,6 +137,7 @@ function crossChecks04(
   const checks: CrossCheck[] = [
     { label: 'Dest. NÃO é optante do Simples Nacional?', severity: assignMandatorySeverity(snOk), passed: snOk, regra: 'CK04A' },
     { label: 'CST origem ≠ 6 (deveria ser 12%)?', severity: assignMandatorySeverity(notCstOrig6), passed: notCstOrig6, regra: 'CK04B' },
+    { label: 'CST origem ≠ 6 (deveria ser 12%)?', severity: assignMandatorySeverity(!cstOrig6), passed: !cstOrig6, regra: 'CK04B' },
     { label: 'CST origem = 1 (importado com similar)?', severity: assignMandatorySeverity(cstOrig1), passed: cstOrig1, regra: 'CK04C' },
   ];
 

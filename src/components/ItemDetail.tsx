@@ -223,6 +223,7 @@ export function ItemDetail({ iv }: ItemDetailProps) {
                 </span>
                 <span className={`font-bold ml-1 ${ck.passed ? 'text-green-600' : 'text-red-500'}`}>
                   {ck.passed ? 'SIM' : 'NÃO'}
+                  {ck.passed ? 'SIM' : 'NAO'}
                 </span>
               </div>
             ))}

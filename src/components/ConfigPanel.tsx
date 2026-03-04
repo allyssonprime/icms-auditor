@@ -100,6 +100,11 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
             onChange={setListaCobreAco}
             placeholder="72&#10;73&#10;74&#10;7106"
             hint={`${textToNcmListShort(listaCobreAco).length} prefixos cadastrados. 4% + aço/cobre = 0,6% recolhimento.`}
+            label="Aco/Cobre — NCMs (prefixos 2+ digitos, um por linha)"
+            value={listaCobreAco}
+            onChange={setListaCobreAco}
+            placeholder="72&#10;73&#10;74&#10;7106"
+            hint={`${textToNcmListShort(listaCobreAco).length} prefixos cadastrados. Aceita prefixos curtos (2 digitos) ou NCM completa.`}
           />
           <ConfigTextarea
             label="Simples Nacional (CNPJs — um por linha)"
