@@ -223,7 +223,7 @@ export default function App() {
             <h1 className="text-xl font-bold text-gray-900">
               PRIME NF-e Auditor v2
             </h1>
-            <p className="text-xs text-gray-500">TTD 410/SC</p>
+            <p className="text-xs text-gray-500">TTD 410/SC — Atualizado em {__BUILD_TIMESTAMP__}</p>
           </div>
           <div className="flex items-center gap-3">
             <ExportButton results={results} />
