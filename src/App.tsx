@@ -14,6 +14,7 @@ import { GroupingPanel } from './components/GroupingPanel.tsx';
 import { NfeListView } from './components/NfeListView.tsx';
 import { CnpjLookupPanel } from './components/CnpjLookupPanel.tsx';
 import { CenarioLegend } from './components/CenarioLegend.tsx';
+import { commitHash } from 'virtual:git-hash';
 
 const STORAGE_KEY = 'prime-nfe-auditor-config';
 const ALLOWED_CFOPS = new Set(['5949', '5102', '6102']);
@@ -285,6 +286,10 @@ export default function App() {
           </>
         )}
       </main>
+
+      <footer className="fixed bottom-1 right-2 text-[10px] text-gray-300 select-none pointer-events-none">
+        build {commitHash}
+      </footer>
 
       {showConfig && (
         <ConfigPanel
