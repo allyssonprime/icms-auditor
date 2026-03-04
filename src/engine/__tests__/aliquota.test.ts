@@ -319,14 +319,12 @@ describe('isNaoContribuinte', () => {
 describe('cross-checks passed field', () => {
   it('12% + CST 6 → CK12A.passed=true, CK12B.passed=false', () => {
     const item = makeItem({ pICMS: 12, cstOrig: '6', cst: '690', cCredPresumido: 'CP123' });
-    const item = makeItem({ pICMS: 12, cstOrig: '6', cst: '690' });
     const dest = makeDest({ uf: 'SC', indIEDest: '1' });
     const { crossChecks } = validarAliquota(item, CENARIOS['B2']!, dest, makeConfig());
     expect(crossChecks.find(c => c.regra === 'CK12A')?.passed).toBe(true);
     expect(crossChecks.find(c => c.regra === 'CK12B')?.passed).toBe(false);
   });
 
-  it('4% + CST orig 1 → CK04C.passed=true', () => {
   it('4% + CST orig 1 → CK04C.passed=true, CK04B.passed=true', () => {
     const item = makeItem({ pICMS: 4, cstOrig: '1', cst: '151' });
     const dest = makeDest({ uf: 'SC', indIEDest: '1' });
@@ -344,7 +342,6 @@ describe('cross-checks passed field', () => {
 
   it('NC by empty IE → 12% CK12D divergente', () => {
     const item = makeItem({ pICMS: 12, cstOrig: '6', cst: '690', cCredPresumido: 'CP123' });
-    const item = makeItem({ pICMS: 12, cstOrig: '6', cst: '690' });
     const dest = makeDest({ uf: 'SC', indIEDest: '1', ie: '' });
     const { crossChecks } = validarAliquota(item, CENARIOS['B2']!, dest, makeConfig());
     expect(crossChecks.find(c => c.regra === 'CK12D')?.severity).toBe('divergente');
