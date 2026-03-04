@@ -1,0 +1,86 @@
+---
+description: Documentacao da infraestrutura Firebase Firestore usada como banco de dados do projeto.
+globs:
+  - src/firebase/**
+  - src/engine/cnpjaClient.ts
+  - src/types/empresa.ts
+alwaysApply: false
+---
+
+# Firebase Firestore — Banco de Dados
+
+## Projeto Firebase
+
+- **Projeto**: auditor-nfs
+- **Console**: https://console.firebase.google.com/project/auditor-nfs
+- **Regiao**: southamerica-east1 (Sao Paulo)
+- **Servico utilizado**: Cloud Firestore (NoSQL por documentos)
+- **Autenticacao**: Nenhuma (regras abertas para leitura/escrita)
+- **Dependencia**: `firebase` (npm)
+
+## Configuracao
+
+O Firebase e inicializado em `src/firebase/config.ts`, que exporta a instancia `db` do Firestore.
+Todas as operacoes de banco devem importar `db` desse arquivo.
+
+## Colecoes
+
+### `empresas`
+
+Armazena o cadastro completo de empresas consultadas na API CNPJa (https://open.cnpja.com/office/{cnpj}).
+
+- **ID do documento**: CNPJ limpo (14 digitos, sem pontuacao). Ex: `85325868000114`
+- **Conteudo**: JSON completo retornado pela API CNPJa, incluindo:
+  - `taxId`, `alias`, `founded`, `head`
+  - `company` (razao social, natureza juridica, porte, Simples Nacional, SIMEI, quadro societario)
+  - `status` (situacao cadastral)
+  - `address` (endereco completo)
+  - `mainActivity` (CNAE principal)
+  - `sideActivities` (CNAEs secundarios)
+  - `phones`, `emails`
+  - `suframa`
+- **Campo adicional**: `consultadoEm` (Timestamp do servidor Firebase, adicionado automaticamente ao salvar)
+- **Tipo TypeScript**: `EmpresaFirestore` em `src/types/empresa.ts`
+
+## Arquivos relevantes
+
+| Arquivo | Funcao |
+|---|---|
+| `src/firebase/config.ts` | Inicializacao do Firebase e exportacao do Firestore (`db`) |
+| `src/firebase/empresaService.ts` | CRUD: `getEmpresaFromFirestore(cnpj)` e `salvarEmpresaFirestore(cnpj, data)` |
+| `src/types/empresa.ts` | Interface `EmpresaFirestore` que tipifica o documento no Firestore |
+| `src/engine/cnpjaClient.ts` | Cliente CNPJa que usa o Firestore como cache persistente |
+
+## Fluxo de consulta CNPJ (3 camadas)
+
+1. **Cache em memoria** (Map no `cnpjaClient.ts`) — retorno instantaneo
+2. **Firestore** (`getEmpresaFromFirestore`) — retorno rapido sem chamar API externa
+3. **API CNPJa** (`fetch`) — ultima opcao; apos resposta, salva JSON completo no Firestore via `salvarEmpresaFirestore` e popula cache em memoria
+
+O `parseResponse()` extrai os campos necessarios (`CnpjInfo`) tanto do JSON da API quanto do documento Firestore — a mesma funcao serve para ambas as fontes.
+
+## Regras de seguranca do Firestore
+
+Configuradas no console Firebase (aba Rules):
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /empresas/{cnpj} {
+      allow read, write: if true;
+    }
+  }
+}
+```
+
+> **ATENCAO**: As regras estao abertas (sem autenticacao). Isso e aceitavel para uso interno/pessoal.
+> Se o app for publicado, adicionar Firebase Auth e restringir as regras.
+
+## Diretrizes para novas colecoes
+
+Ao adicionar novas colecoes no Firestore:
+1. Criar as funcoes de acesso em `src/firebase/` (seguir padrao de `empresaService.ts`)
+2. Criar a interface TypeScript em `src/types/`
+3. Adicionar a regra de seguranca no console Firebase
+4. Manter falhas silenciosas com `console.error` nos blocos `catch` para nao quebrar a app

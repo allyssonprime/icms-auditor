@@ -1,4 +1,5 @@
 import type { CnpjInfo } from '../types/validation.ts';
+import { getEmpresaFromFirestore, salvarEmpresaFirestore } from '../firebase/empresaService.ts';
 
 // CNPJa Open API: https://open.cnpja.com/office/{cnpj}
 // Limite: 5 requests/min (1 a cada 12 segundos para seguranca)
@@ -87,14 +88,21 @@ async function processQueue(): Promise<void> {
   while (pendingQueue.length > 0) {
     const entry = pendingQueue.shift()!;
 
-    // Checar cache primeiro
     const cached = cache.get(entry.cnpj);
     if (cached) {
       entry.resolve(cached);
       continue;
     }
 
-    // Rate limit: esperar intervalo minimo
+    // Verificar Firestore antes de chamar a API
+    const firestoreData = await getEmpresaFromFirestore(entry.cnpj);
+    if (firestoreData) {
+      const info = parseResponse(entry.cnpj, firestoreData as unknown as Record<string, unknown>);
+      cache.set(entry.cnpj, info);
+      entry.resolve(info);
+      continue;
+    }
+
     const now = Date.now();
     const elapsed = now - lastRequestTime;
     if (elapsed < MIN_INTERVAL_MS) {
@@ -127,6 +135,7 @@ async function fetchCnpj(cnpj: string): Promise<CnpjInfo | null> {
       }
 
       const data = await response.json();
+      salvarEmpresaFirestore(cleanCnpj, data);
       const info = parseResponse(cleanCnpj, data);
       cache.set(cleanCnpj, info);
       return info;
