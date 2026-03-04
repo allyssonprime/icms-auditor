@@ -158,7 +158,7 @@ export function Dashboard({ results, discardedByCfop = 0, config }: DashboardPro
           {totalNfes} NF-e processadas
           {discardedByCfop > 0 && (
             <span className="ml-2 text-gray-400">
-              ({discardedByCfop} descartada{discardedByCfop > 1 ? 's' : ''} por CFOP/valor)
+              ({discardedByCfop} descartada{discardedByCfop > 1 ? 's' : ''} por CFOP)
             </span>
           )}
         </div>

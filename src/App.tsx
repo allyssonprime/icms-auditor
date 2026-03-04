@@ -14,9 +14,10 @@ import { GroupingPanel } from './components/GroupingPanel.tsx';
 import { NfeListView } from './components/NfeListView.tsx';
 import { CnpjLookupPanel } from './components/CnpjLookupPanel.tsx';
 import { CenarioLegend } from './components/CenarioLegend.tsx';
+import { commitHash } from 'virtual:git-hash';
 
 const STORAGE_KEY = 'prime-nfe-auditor-config';
-const ALLOWED_CFOPS = new Set(['5949', '6949', '5102', '6102']);
+const ALLOWED_CFOPS = new Set(['5949', '5102', '6102']);
 
 function loadConfig(): AppConfig {
   try {
@@ -64,26 +65,6 @@ function nfeHasAllowedCfop(items: Array<{ cfop: string }>): boolean {
   return items.some(item => ALLOWED_CFOPS.has(item.cfop));
 }
 
-/** Check if NF-e has non-zero total values */
-function nfeHasNonZeroTotal(items: Array<{ vBC: number; vICMS: number; vProd: number }>): boolean {
-  return items.some(item => item.vBC > 0 || item.vICMS > 0 || item.vProd > 0);
-}
-
-/** Extract XML files from a ZIP archive */
-async function extractXmlsFromZip(file: File): Promise<File[]> {
-  const JSZip = (await import('jszip')).default;
-  const zip = await JSZip.loadAsync(file);
-  const xmlFiles: File[] = [];
-  const entries = Object.entries(zip.files);
-  for (const [name, entry] of entries) {
-    if (!entry.dir && name.toLowerCase().endsWith('.xml')) {
-      const blob = await entry.async('blob');
-      xmlFiles.push(new File([blob], name, { type: 'text/xml' }));
-    }
-  }
-  return xmlFiles;
-}
-
 interface ParseError {
   fileName: string;
   error: string;
@@ -113,34 +94,17 @@ export default function App() {
       setIsProcessing(true);
       const newResults: NfeValidation[] = [];
       const newErrors: ParseError[] = [];
-      let discarded = 0;
+      let cfopDiscarded = 0;
 
-      // Expand ZIP files into XML files
-      const allFiles: File[] = [];
       for (const file of files) {
-        if (file.name.toLowerCase().endsWith('.zip')) {
-          try {
-            const extracted = await extractXmlsFromZip(file);
-            allFiles.push(...extracted);
-          } catch (e) {
-            newErrors.push({ fileName: file.name, error: `Erro ao abrir ZIP: ${e instanceof Error ? e.message : String(e)}` });
-          }
-        } else {
-          allFiles.push(file);
-        }
-      }
-
-      for (const file of allFiles) {
         try {
           const text = await file.text();
           const parseResult = parseNfe(text, file.name);
           if (parseResult.success) {
-            if (!nfeHasAllowedCfop(parseResult.data.itens)) {
-              discarded++;
-            } else if (!nfeHasNonZeroTotal(parseResult.data.itens)) {
-              discarded++;
-            } else {
+            if (nfeHasAllowedCfop(parseResult.data.itens)) {
               newResults.push(validarNfe(parseResult.data, config, cnpjInfoMap));
+            } else {
+              cfopDiscarded++;
             }
           } else {
             newErrors.push({ fileName: file.name, error: parseResult.error });
@@ -155,7 +119,7 @@ export default function App() {
 
       setResults(prev => [...prev, ...newResults]);
       setParseErrors(prev => [...prev, ...newErrors]);
-      setDiscardedByCfop(prev => prev + discarded);
+      setDiscardedByCfop(prev => prev + cfopDiscarded);
       setIsProcessing(false);
     },
     [config, cnpjInfoMap],
@@ -322,6 +286,10 @@ export default function App() {
           </>
         )}
       </main>
+
+      <footer className="fixed bottom-1 right-2 text-[10px] text-gray-300 select-none pointer-events-none">
+        build {commitHash}
+      </footer>
 
       {showConfig && (
         <ConfigPanel
