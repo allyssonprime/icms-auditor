@@ -1,6 +1,7 @@
 import type { Timestamp } from 'firebase/firestore';
 
 export interface EmpresaFirestore {
+  fonte?: 'cnpja' | 'opencnpj';
   taxId: string;
   alias?: string;
   founded?: string;
@@ -59,6 +60,12 @@ export interface EmpresaFirestore {
   emails?: Array<{ ownership?: string; address?: string; domain?: string }>;
 
   suframa?: unknown[];
+
+  // Campos OpenCNPJ (quando fonte === 'opencnpj')
+  razaoSocial?: string;
+  opcaoSimples?: string;
+  opcaoMei?: string;
+  cnaes?: Array<{ cnae: string; descricao: string }>;
 
   consultadoEm?: Timestamp;
 }

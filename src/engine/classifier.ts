@@ -24,7 +24,7 @@ export function classificarCenario(
     const isSN = !!dest.cnpj && config.listaSN.includes(dest.cnpj);
 
     const normalizedNcm = item.ncm.replace(/\./g, '');
-    const isCAMEX = config.listaCamex.some(ncm => {
+    const isCAMEX = item.cstOrig === '6' || config.listaCamex.some(ncm => {
       const camexNorm = ncm.replace(/\./g, '');
       return normalizedNcm.startsWith(camexNorm);
     });
@@ -46,17 +46,21 @@ export function classificarCenario(
 
     // === INTERESTADUAIS ===
     if (isInterestadual) {
+      // NC tem prioridade sobre SN — empresa pode ser optante do SN mas sem IE = não contribuinte de ICMS
+      if (isPJNaoContribuinte) {
+        return isCAMEX ? 'A5' : 'A4';
+      }
+      if (isPF) {
+        return isCAMEX ? 'A7' : 'A6';
+      }
+
       if (cobreAco && isContribuinte && !isCAMEX) return 'A8';
 
       if (isCAMEX) {
         if (isContribuinte || isSN) return 'A2';
-        if (isPJNaoContribuinte) return 'A5';
-        if (isPF) return 'A7';
       }
 
       if (isContribuinte || isSN) return 'A1';
-      if (isPJNaoContribuinte) return 'A4';
-      if (isPF) return 'A6';
     }
 
     // === INTERNAS (SC) ===

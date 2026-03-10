@@ -12,7 +12,7 @@ export async function getEmpresaFromFirestore(
     const snap = await getDoc(ref);
     return snap.exists() ? (snap.data() as EmpresaFirestore) : null;
   } catch (err) {
-    console.error(`[Firestore] Erro ao ler empresa ${cnpj}:`, err);
+    console.error(`[Firestore] Erro ao ler a empresa ${cnpj}:`, err);
     return null;
   }
 }

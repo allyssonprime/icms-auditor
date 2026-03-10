@@ -1,12 +1,10 @@
 import type { CnpjInfo } from '../types/validation.ts';
-import { getEmpresaFromFirestore, salvarEmpresaFirestore } from '../firebase/empresaService.ts';
 
 // CNPJa Open API: https://open.cnpja.com/office/{cnpj}
 // Limite: 5 requests/min (1 a cada 12 segundos para seguranca)
-// Sem autenticacao. Consulta apenas quando necessario (divergencias).
+// Sem autenticacao. Usada como fallback quando OpenCNPJ falha.
 
 const API_BASE = 'https://open.cnpja.com/office';
-const MIN_INTERVAL_MS = 12500; // 12.5s = ~4.8 req/min (margem de seguranca)
 const MAX_RETRIES = 2;
 
 // === DETECCAO CNAE INDUSTRIAL ===
@@ -16,8 +14,7 @@ const MAX_RETRIES = 2;
 
 const INDUSTRIAL_KEYWORDS = [
   'fabricacao', 'fabricação',
-  'industria', 'indústria',
-  'industrial', 'industriais',
+  'industria de', 'indústria de',
   'manufatura',
   'metalurgia', 'metalurgica', 'metalúrgica',
   'siderurgia', 'siderurgica', 'siderúrgica',
@@ -47,6 +44,23 @@ const INDUSTRIAL_KEYWORDS = [
   'abate de',
 ];
 
+// Divisoes que nunca sao industriais, mesmo com keywords na descricao
+// (ex: "Comercio atacadista de maquinas para uso industrial")
+const NON_INDUSTRIAL_DIVISIONS = new Set([
+  35, 36, 37, 38, 39,       // Eletricidade, agua, esgoto
+  41, 42, 43,               // Construcao
+  45, 46, 47,               // Comercio (atacadista e varejista)
+  49, 50, 51, 52, 53,       // Transporte e correios
+  55, 56,                   // Alojamento e alimentacao
+  58, 59, 60, 61, 62, 63,  // Informacao e comunicacao
+  64, 65, 66,               // Financeiro
+  68,                       // Imobiliario
+  69, 70, 71, 72, 73, 74, 75, // Servicos profissionais
+  77, 78, 79, 80, 81, 82,  // Servicos administrativos
+  84, 85, 86, 87, 88,      // Adm publica, educacao, saude
+  90, 91, 92, 93, 94, 95, 96, 97, 99, // Outros servicos
+]);
+
 function isIndustrialByCode(cnae: string): boolean {
   const code = cnae.replace(/[.\-/]/g, '');
   if (code.length < 2) return false;
@@ -62,96 +76,24 @@ function isIndustrialByDescription(desc: string): boolean {
   return INDUSTRIAL_KEYWORDS.some(kw => lower.includes(kw));
 }
 
-// Verifica apenas pelo CNAE principal (e sua descrição) para evitar falsos positivos
-// com CNAEs secundários de comércio/serviços que têm atividade industrial secundária
+// Verifica apenas pelo CNAE principal (e sua descricao) para evitar falsos positivos.
+// Se o codigo CNAE pertence a uma divisao claramente nao-industrial (comercio, servicos, etc),
+// nao usa keywords da descricao (evita falso positivo tipo "Comercio de maquinas para uso industrial").
 function checkIndustrial(primaryCnae: string, primaryDesc: string): boolean {
   if (isIndustrialByCode(primaryCnae)) return true;
+  // Verificar a divisao do CNAE antes de usar keywords da descricao
+  const code = primaryCnae.replace(/[.\-/]/g, '');
+  const divisao = code.length >= 2 ? parseInt(code.slice(0, 2), 10) : 0;
+  if (NON_INDUSTRIAL_DIVISIONS.has(divisao)) return false;
   if (isIndustrialByDescription(primaryDesc)) return true;
   return false;
 }
 
-// Cache local em memoria
-const cache = new Map<string, CnpjInfo>();
-
-// Fila de requests com rate limiting
-let lastRequestTime = 0;
-const pendingQueue: Array<{
-  cnpj: string;
-  resolve: (info: CnpjInfo | null) => void;
-}> = [];
-let processing = false;
-
-async function processQueue(): Promise<void> {
-  if (processing) return;
-  processing = true;
-
-  while (pendingQueue.length > 0) {
-    const entry = pendingQueue.shift()!;
-
-    const cached = cache.get(entry.cnpj);
-    if (cached) {
-      entry.resolve(cached);
-      continue;
-    }
-
-    // Verificar Firestore antes de chamar a API
-    const firestoreData = await getEmpresaFromFirestore(entry.cnpj);
-    if (firestoreData) {
-      const info = parseResponse(entry.cnpj, firestoreData as unknown as Record<string, unknown>);
-      cache.set(entry.cnpj, info);
-      entry.resolve(info);
-      continue;
-    }
-
-    const now = Date.now();
-    const elapsed = now - lastRequestTime;
-    if (elapsed < MIN_INTERVAL_MS) {
-      await new Promise(r => setTimeout(r, MIN_INTERVAL_MS - elapsed));
-    }
-
-    const info = await fetchCnpj(entry.cnpj);
-    entry.resolve(info);
-  }
-
-  processing = false;
-}
-
-async function fetchCnpj(cnpj: string): Promise<CnpjInfo | null> {
-  const cleanCnpj = cnpj.replace(/\D/g, '');
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      lastRequestTime = Date.now();
-      const response = await fetch(`${API_BASE}/${cleanCnpj}`);
-
-      if (response.status === 429) {
-        // Rate limited — esperar mais e tentar novamente
-        await new Promise(r => setTimeout(r, 15000));
-        continue;
-      }
-
-      if (!response.ok) {
-        return null;
-      }
-
-      const data = await response.json();
-      salvarEmpresaFirestore(cleanCnpj, data);
-      const info = parseResponse(cleanCnpj, data);
-      cache.set(cleanCnpj, info);
-      return info;
-    } catch {
-      if (attempt < MAX_RETRIES) {
-        await new Promise(r => setTimeout(r, 5000));
-      }
-    }
-  }
-
-  return null;
-}
-
-function parseResponse(cnpj: string, data: Record<string, unknown>): CnpjInfo {
+// Parse da resposta da CNPJa Open API para CnpjInfo
+export function parseCnpjaResponse(cnpj: string, data: Record<string, unknown>): CnpjInfo {
   const company = (data.company ?? data) as Record<string, unknown>;
   const simples = (company.simples ?? {}) as Record<string, unknown>;
+  const simei = (company.simei ?? {}) as Record<string, unknown>;
 
   // CNPJa Open API usa: mainActivity.id, mainActivity.text
   //                       sideActivities[].id, sideActivities[].text
@@ -174,20 +116,23 @@ function parseResponse(cnpj: string, data: Record<string, unknown>): CnpjInfo {
   const cnaeDescricao = String(primaryActivity.text ?? primaryActivity.description ?? '');
 
   const cnaesSecundarios: string[] = [];
-  const descSecundarias: string[] = [];
   for (const act of secondaryActivities) {
     const code = String(act.id ?? act.code ?? '');
-    const desc = String(act.text ?? act.description ?? '');
     if (code) cnaesSecundarios.push(code);
-    if (desc) descSecundarias.push(desc);
   }
 
   const isIndustrial = checkIndustrial(cnaePrincipal, cnaeDescricao);
 
+  // UF from address.state
+  const address = (data.address ?? {}) as Record<string, unknown>;
+  const uf = address.state ? String(address.state) : undefined;
+
   return {
     cnpj,
     razaoSocial: String(company.name ?? data.name ?? data.alias ?? ''),
+    uf,
     simplesOptante: simples.optant != null ? Boolean(simples.optant) : null,
+    isMei: simei.optant != null ? Boolean(simei.optant) : null,
     cnaePrincipal,
     cnaeDescricao,
     cnaesSecundarios,
@@ -195,31 +140,38 @@ function parseResponse(cnpj: string, data: Record<string, unknown>): CnpjInfo {
   };
 }
 
-// API publica para o app
-export function consultarCnpj(cnpj: string): Promise<CnpjInfo | null> {
+// Fetch direto da API CNPJa (sem fila/cache — gerenciado pelo cnpjService)
+export async function fetchFromCnpja(cnpj: string): Promise<{ info: CnpjInfo; rawData: Record<string, unknown> } | null> {
   const cleanCnpj = cnpj.replace(/\D/g, '');
 
-  // Retornar do cache se disponivel
-  const cached = cache.get(cleanCnpj);
-  if (cached) return Promise.resolve(cached);
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(`${API_BASE}/${cleanCnpj}`);
 
-  return new Promise<CnpjInfo | null>(resolve => {
-    pendingQueue.push({ cnpj: cleanCnpj, resolve });
-    processQueue();
-  });
+      if (response.status === 429) {
+        console.warn('[CNPJa] Rate limited (429), aguardando 15s...');
+        await new Promise(r => setTimeout(r, 15000));
+        continue;
+      }
+
+      if (!response.ok) {
+        console.warn(`[CNPJa] HTTP ${response.status} para CNPJ ${cleanCnpj}`);
+        return null;
+      }
+
+      const data = await response.json() as Record<string, unknown>;
+      const info = parseCnpjaResponse(cleanCnpj, data);
+      return { info, rawData: data };
+    } catch (err) {
+      console.warn(`[CNPJa] Erro na tentativa ${attempt + 1}/${MAX_RETRIES + 1}:`, err);
+      if (attempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, 5000));
+      }
+    }
+  }
+
+  return null;
 }
 
-export function getCachedCnpj(cnpj: string): CnpjInfo | undefined {
-  return cache.get(cnpj.replace(/\D/g, ''));
-}
-
-export function getCacheSize(): number {
-  return cache.size;
-}
-
-export function getQueueSize(): number {
-  return pendingQueue.length;
-}
-
-// Exportar para testes
+// Exportar para testes e uso pelo cnpjService
 export { isIndustrialByCode, isIndustrialByDescription, checkIndustrial };

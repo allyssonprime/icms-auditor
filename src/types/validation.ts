@@ -40,7 +40,9 @@ export interface NfeValidation {
 export interface CnpjInfo {
   cnpj: string;
   razaoSocial: string;
+  uf?: string;
   simplesOptante: boolean | null;
+  isMei: boolean | null;
   cnaePrincipal: string;
   cnaeDescricao: string;
   cnaesSecundarios: string[];

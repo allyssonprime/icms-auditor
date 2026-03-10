@@ -1,0 +1,295 @@
+{
+  "titulo": "PRIME NF-e Auditor v2 — Regras de Validação",
+  "versao": "2.0",
+  "dataGeracao": "2026-03-04",
+  "totalRegras": 25,
+  "totalCrossChecks": 16,
+  "severidades": {
+    "regras": ["OK", "ALERTA", "ERRO"],
+    "crossChecks": ["ok", "atencao", "divergente"]
+  },
+  "regras": {
+    "aliquota": [
+      {
+        "codigo": "AL00",
+        "status": "OK",
+        "descricao": "Cenário sem alíquota esperada (diferimento/transferência)",
+        "condicao": "cenario.aliquotasAceitas.length === 0",
+        "arquivo": "src/engine/aliquota.ts"
+      },
+      {
+        "codigo": "AL01",
+        "status": "OK",
+        "descricao": "Alíquota conforme cenário",
+        "condicao": "Alíquota confere com cenario.aliquotasAceitas",
+        "arquivo": "src/engine/aliquota.ts"
+      },
+      {
+        "codigo": "AL01",
+        "status": "ERRO",
+        "descricao": "Alíquota diverge do esperado para o cenário",
+        "condicao": "Alíquota diverge + (tem CP ou < 12%)",
+        "arquivo": "src/engine/aliquota.ts"
+      },
+      {
+        "codigo": "AL02",
+        "status": "ALERTA",
+        "descricao": "Alíquota aceita mas cross-checks apresentam divergências",
+        "condicao": "Alíquota confere + hasJustification === false",
+        "arquivo": "src/engine/aliquota.ts"
+      },
+      {
+        "codigo": "AL06",
+        "status": "ALERTA",
+        "descricao": "4% válido mas opção 10% disponível (mais crédito para o cliente)",
+        "condicao": "Cenário B3 + alíquota 4%",
+        "arquivo": "src/engine/aliquota.ts"
+      },
+      {
+        "codigo": "AL07",
+        "status": "ALERTA",
+        "descricao": "17% aceita porém justificativa somente por Simples Nacional",
+        "condicao": "17% + snOnly === true (SN é única justificativa)",
+        "arquivo": "src/engine/aliquota.ts"
+      },
+      {
+        "codigo": "AL08",
+        "status": "ALERTA",
+        "descricao": "Alíquota confere mas sem crédito presumido informado — verificar",
+        "condicao": "≥12% + sem cCredPresumido + cenario.temCP + BC não reduzida",
+        "arquivo": "src/engine/aliquota.ts"
+      },
+      {
+        "codigo": "AL09",
+        "status": "ALERTA",
+        "descricao": "Alíquota diverge do cenário mas sem CP — possível não utilização do TTD",
+        "condicao": "Alíquota diverge + ≥12% + sem cCredPresumido",
+        "arquivo": "src/engine/aliquota.ts"
+      }
+    ],
+    "vedacao": [
+      {
+        "codigo": "V01",
+        "status": "ERRO",
+        "descricao": "NCM vedada pelo Decreto 2.128 — TTD não pode ser aplicado",
+        "condicao": "NCM ∈ config.decreto2128",
+        "arquivo": "src/engine/vedacoes.ts"
+      },
+      {
+        "codigo": "V01-EXC",
+        "status": "ALERTA",
+        "descricao": "NCM no Decreto 2.128 mas operação interna SC sem CP — verificar uso do TTD",
+        "condicao": "NCM ∈ decreto2128 + SC×SC + ≥12% + sem CP",
+        "arquivo": "src/engine/vedacoes.ts"
+      },
+      {
+        "codigo": "V02",
+        "status": "ERRO",
+        "descricao": "TTD vedado para mercadoria usada",
+        "condicao": "CFOP ∈ {5922, 6922}",
+        "arquivo": "src/engine/vedacoes.ts"
+      }
+    ],
+    "cst": [
+      {
+        "codigo": "CST01",
+        "status": "OK",
+        "descricao": "CST OK — origem de importador válida",
+        "condicao": "Origem ∈ {1, 6, 7}",
+        "arquivo": "src/engine/cst.ts"
+      },
+      {
+        "codigo": "CST02",
+        "status": "ALERTA",
+        "descricao": "CST origem inesperada — pode indicar mercadoria nacional",
+        "condicao": "Origem ∉ {1, 6, 7}",
+        "arquivo": "src/engine/cst.ts"
+      },
+      {
+        "codigo": "CST03",
+        "status": "ALERTA",
+        "descricao": "ST detectada em cenário que normalmente não tem ST",
+        "condicao": "Tribut. = 10 + cenário não espera ST",
+        "arquivo": "src/engine/cst.ts"
+      },
+      {
+        "codigo": "CST04",
+        "status": "ALERTA",
+        "descricao": "Redução de BC (CST 20) — verificar se correto para o cenário",
+        "condicao": "Tribut. = 20",
+        "arquivo": "src/engine/cst.ts"
+      }
+    ],
+    "cfop": [
+      {
+        "codigo": "CF00",
+        "status": "OK",
+        "descricao": "CFOP não validado para este cenário",
+        "condicao": "cenario.cfopsEsperados.length === 0",
+        "arquivo": "src/engine/cfop.ts"
+      },
+      {
+        "codigo": "CF01",
+        "status": "OK",
+        "descricao": "CFOP conforme cenário",
+        "condicao": "CFOP ∈ cenario.cfopsEsperados",
+        "arquivo": "src/engine/cfop.ts"
+      },
+      {
+        "codigo": "CF01",
+        "status": "ALERTA",
+        "descricao": "CFOP não é padrão para o cenário",
+        "condicao": "CFOP ∉ lista esperada + não é conta/ordem nem venda",
+        "arquivo": "src/engine/cfop.ts"
+      },
+      {
+        "codigo": "CF02",
+        "status": "OK",
+        "descricao": "CFOP de conta e ordem — sempre aceito",
+        "condicao": "CFOP termina em 49",
+        "arquivo": "src/engine/cfop.ts"
+      },
+      {
+        "codigo": "CF03",
+        "status": "OK",
+        "descricao": "CFOP de venda — aceito",
+        "condicao": "CFOP termina em 02",
+        "arquivo": "src/engine/cfop.ts"
+      }
+    ],
+    "fluxo": [
+      {
+        "codigo": "I09",
+        "status": "ALERTA",
+        "descricao": "Devolução detectada — estornar CP (item 1.20), creditar fundos via DCIP 54",
+        "condicao": "cenarioId === 'DEVOLUCAO'",
+        "arquivo": "src/engine/validator.ts"
+      },
+      {
+        "codigo": "C-UNK",
+        "status": "ALERTA",
+        "descricao": "Cenário não identificado — verificar manualmente",
+        "condicao": "Nenhum cenário classificado",
+        "arquivo": "src/engine/validator.ts"
+      }
+    ]
+  },
+  "crossChecks": {
+    "aliquota12": {
+      "descricao": "Verificações para alíquota 12% — lógica OR (basta 1 justificativa) + AND (obrigatórias)",
+      "checks": [
+        {
+          "codigo": "CK12A",
+          "logica": "OR",
+          "verificacao": "CST origem = 6 (CAMEX)?",
+          "condicao": "item.cstOrig === '6'"
+        },
+        {
+          "codigo": "CK12B",
+          "logica": "OR",
+          "verificacao": "NCM na lista CAMEX?",
+          "condicao": "NCM ∈ config.listaCamex"
+        },
+        {
+          "codigo": "CK12C",
+          "logica": "OR",
+          "verificacao": "Destinatário é Simples Nacional?",
+          "condicao": "CNPJ ∈ config.listaSN"
+        },
+        {
+          "codigo": "CK12D",
+          "logica": "AND",
+          "verificacao": "Destinatário NÃO é não-contribuinte?",
+          "condicao": "!isNaoContribuinte(dest)"
+        }
+      ]
+    },
+    "aliquota10": {
+      "descricao": "Verificações para alíquota 10% — AND obrigatórias + OR para industrial (cenário B3)",
+      "checks": [
+        {
+          "codigo": "CK10A",
+          "logica": "AND",
+          "verificacao": "Remessa interna (SC → SC)?",
+          "condicao": "dest.uf === 'SC'"
+        },
+        {
+          "codigo": "CK10B",
+          "logica": "OR(B3) / AND",
+          "verificacao": "Dest. na lista de industriais?",
+          "condicao": "CNPJ ∈ config.listaIndustriais"
+        },
+        {
+          "codigo": "CK10E",
+          "logica": "OR(B3)",
+          "verificacao": "CNAE de atividade industrial?",
+          "condicao": "CNAE principal indica atividade industrial"
+        },
+        {
+          "codigo": "CK10C",
+          "logica": "AND",
+          "verificacao": "Dest. NÃO é Simples Nacional?",
+          "condicao": "CNPJ ∉ config.listaSN"
+        },
+        {
+          "codigo": "CK10D",
+          "logica": "AND",
+          "verificacao": "Dest. NÃO é não-contribuinte?",
+          "condicao": "!isNaoContribuinte(dest)"
+        }
+      ]
+    },
+    "aliquota04": {
+      "descricao": "Verificações para alíquota 4% — todas AND (obrigatórias)",
+      "checks": [
+        {
+          "codigo": "CK04A",
+          "logica": "AND",
+          "verificacao": "Dest. NÃO é Simples Nacional? (exceto B4)",
+          "condicao": "!isSN || cenario === B4"
+        },
+        {
+          "codigo": "CK04B",
+          "logica": "AND",
+          "verificacao": "CST origem ≠ 6 (se fosse CAMEX, deveria ser 12%)?",
+          "condicao": "cstOrig !== '6'"
+        },
+        {
+          "codigo": "CK04C",
+          "logica": "AND",
+          "verificacao": "CST origem = 1 (importado com similar nacional)?",
+          "condicao": "cstOrig === '1'"
+        }
+      ]
+    },
+    "aliquota17": {
+      "descricao": "Verificações para alíquota 17% — lógica OR (precisa de ao menos 1 justificativa)",
+      "checks": [
+        {
+          "codigo": "CK17A",
+          "logica": "OR",
+          "verificacao": "Base de cálculo é reduzida?",
+          "condicao": "CST 20 || pRedBC > 0 || vBC < vProd × 0.98"
+        },
+        {
+          "codigo": "CK17B",
+          "logica": "OR (fraco)",
+          "verificacao": "Destinatário é Simples Nacional?",
+          "condicao": "CNPJ ∈ config.listaSN (sozinho → AL07)"
+        },
+        {
+          "codigo": "CK17C",
+          "logica": "OR",
+          "verificacao": "Destinatário é não-contribuinte?",
+          "condicao": "isNaoContribuinte(dest)"
+        }
+      ]
+    }
+  },
+  "helpers": {
+    "isNaoContribuinte": "indIEDest='9' OU IE ausente/vazia OU IE='ISENTA'/'ISENTO'",
+    "isBCReduzida": "CST tribut.=20 OU pRedBC>0 OU vBC < vProd×0.98",
+    "isCAMEX": "cstOrig='6' OU NCM ∈ listaCamex",
+    "checkIndustrial": "Apenas CNAE principal (não secundários)"
+  }
+}

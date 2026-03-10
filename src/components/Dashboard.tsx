@@ -2,12 +2,22 @@ import type { NfeValidation } from '../types/validation.ts';
 import type { AppConfig } from '../types/config.ts';
 import { formatCurrency } from '../utils/formatters.ts';
 import { isCobreAco } from '../data/cobreAco.ts';
+import { CheckCircle2, AlertTriangle, XCircle, TrendingUp, DollarSign, Receipt, Landmark } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 
 const CAMEX_CENARIOS = new Set(['A2', 'A5', 'A7', 'B2', 'B4-CAMEX', 'B5-CAMEX', 'B6-CAMEX']);
 
 interface DashboardProps {
   results: NfeValidation[];
+  /** Total de XMLs enviados no(s) upload(s) desta sessão */
+  uploadedTotal?: number;
   discardedByCfop?: number;
+  discardedZero?: number;
+  /** Ignoradas por duplicidade (mesma chave NF-e já processada) */
+  discardedDuplicates?: number;
   config: AppConfig;
 }
 
@@ -121,8 +131,9 @@ function buildGroups(results: NfeValidation[], config: AppConfig): {
   return { groups, camex21Groups, grandTotal36: sum(groups), grandTotal21: sum(camex21Groups) };
 }
 
-export function Dashboard({ results, discardedByCfop = 0, config }: DashboardProps) {
-  if (results.length === 0) return null;
+export function Dashboard({ results, uploadedTotal = 0, discardedByCfop = 0, discardedZero = 0, discardedDuplicates = 0, config }: DashboardProps) {
+  const totalUploaded = uploadedTotal > 0 ? uploadedTotal : results.length + discardedByCfop + discardedZero + discardedDuplicates;
+  if (totalUploaded === 0) return null;
 
   const totalNfes = results.length;
   const nfesOk = results.filter(r => r.statusFinal === 'OK').length;
@@ -135,73 +146,123 @@ export function Dashboard({ results, discardedByCfop = 0, config }: DashboardPro
   const hasCamex = groups.some(g => g.label === '12% CAMEX');
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-      <h2 className="text-lg font-semibold text-gray-800 mb-4">Resumo</h2>
+    <div className="mb-6 space-y-4">
+      {/* Status summary bar */}
+      <Card className="bg-gradient-to-r from-[#2B318A] to-[#5A81FA] border-0 shadow-lg">
+        <CardContent className="py-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+                <Receipt size={20} className="text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">
+                  {totalUploaded} NF-e no upload
+                </h2>
+                <p className="text-sm text-white/90 mt-0.5">
+                  {totalNfes} processada{totalNfes !== 1 ? 's' : ''} &middot; {discardedByCfop} descartada{discardedByCfop !== 1 ? 's' : ''} por CFOP &middot; {discardedZero} zerada{discardedZero !== 1 ? 's' : ''} descartada{discardedZero !== 1 ? 's' : ''}
+                  {discardedDuplicates > 0 && <> &middot; {discardedDuplicates} duplicada{discardedDuplicates !== 1 ? 's' : ''} ignorada{discardedDuplicates !== 1 ? 's' : ''}</>}
+                </p>
+              </div>
+            </div>
+            {totalNfes > 0 && (
+              <div className="flex items-center gap-2">
+                <Badge className="bg-emerald-400 text-emerald-950 border-0 font-semibold text-sm px-3 py-1 gap-1.5 shadow-sm">
+                  <CheckCircle2 size={15} />
+                  {nfesOk} OK
+                </Badge>
+                {nfesAlerta > 0 && (
+                  <Badge className="bg-amber-400 text-amber-950 border-0 font-semibold text-sm px-3 py-1 gap-1.5 shadow-sm">
+                    <AlertTriangle size={15} />
+                    {nfesAlerta} Alerta{nfesAlerta > 1 ? 's' : ''}
+                  </Badge>
+                )}
+                {nfesErro > 0 && (
+                  <Badge className="bg-red-400 text-red-950 border-0 font-semibold text-sm px-3 py-1 gap-1.5 shadow-sm">
+                    <XCircle size={15} />
+                    {nfesErro} Erro{nfesErro > 1 ? 's' : ''}
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="flex flex-wrap gap-6 mb-4">
-        <div className="flex items-center gap-2">
-          <span className="w-4 h-4 rounded-full bg-green-500 inline-block" />
-          <span className="text-2xl font-bold text-green-700">{nfesOk}</span>
-          <span className="text-sm text-gray-500">OK</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-4 h-4 rounded-full bg-yellow-400 inline-block" />
-          <span className="text-2xl font-bold text-yellow-600">{nfesAlerta}</span>
-          <span className="text-sm text-gray-500">Alertas</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-4 h-4 rounded-full bg-red-500 inline-block" />
-          <span className="text-2xl font-bold text-red-700">{nfesErro}</span>
-          <span className="text-sm text-gray-500">Erros</span>
-        </div>
-        <div className="text-sm text-gray-500 self-center">
-          {totalNfes} NF-e processadas
-          {discardedByCfop > 0 && (
-            <span className="ml-2 text-gray-400">
-              ({discardedByCfop} descartada{discardedByCfop > 1 ? 's' : ''} por CFOP)
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 mb-6">
-        <TotalCard label="Total BC ICMS" value={totalBC} />
-        <TotalCard label="ICMS Destacado" value={totalICMSDestacado} />
-        <TotalCard label="ICMS Recolher (CAMEX 3,6%)" value={grandTotal36.icmsRecolher} accent="blue" />
-        <TotalCard label="Total c/ Fundos (CAMEX 3,6%)" value={grandTotal36.total} accent="red" />
-      </div>
-
-      <h3 className="text-sm font-semibold text-gray-700 mb-2 mt-6">
-        Detalhamento por Alíquota{hasCamex ? ' (CAMEX a 3,6%)' : ''}
-      </h3>
-      <AliquotaTable groups={groups} grandTotal={grandTotal36} />
-
-      {hasCamex && (
+      {totalNfes > 0 && (
         <>
-          <h3 className="text-sm font-semibold text-gray-700 mb-2 mt-6">Detalhamento por Alíquota (CAMEX a 2,1%)</h3>
-          <AliquotaTable groups={camex21Groups} grandTotal={grandTotal21} />
-        </>
-      )}
+      {/* Metric cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <TotalCard label="Total BC ICMS" value={totalBC} icon={<TrendingUp size={18} />} />
+        <TotalCard label="ICMS Destacado" value={totalICMSDestacado} icon={<DollarSign size={18} />} />
+        <TotalCard label="ICMS Recolher (CAMEX 3,6%)" value={grandTotal36.icmsRecolher} accent="blue" icon={<Landmark size={18} />} />
+        <TotalCard label="Total c/ Fundos (CAMEX 3,6%)" value={grandTotal36.total} accent="red" icon={<Receipt size={18} />} />
+      </div>
 
-      {hasCamex && (
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-            <div className="text-xs font-medium text-blue-600 mb-1">Total com CAMEX a 3,6%</div>
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div><div className="text-blue-500">ICMS Recolher</div><div className="font-bold text-blue-800">{formatCurrency(grandTotal36.icmsRecolher)}</div></div>
-              <div><div className="text-blue-500">Fundos</div><div className="font-bold text-blue-800">{formatCurrency(grandTotal36.fundos)}</div></div>
-              <div><div className="text-blue-500">Total</div><div className="font-bold text-blue-800">{formatCurrency(grandTotal36.total)}</div></div>
-            </div>
+      {/* Detail tables */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Detalhamento por Aliquota</CardTitle>
+        </CardHeader>
+        <CardContent>
+
+        <h3 className="text-sm font-semibold text-foreground mb-2">
+          {hasCamex ? 'CAMEX a 3,6%' : ''}
+        </h3>
+        <AliquotaTable groups={groups} grandTotal={grandTotal36} />
+
+        {hasCamex && (
+          <>
+            <h3 className="text-sm font-semibold text-foreground mb-2 mt-6">Detalhamento por Aliquota (CAMEX a 2,1%)</h3>
+            <AliquotaTable groups={camex21Groups} grandTotal={grandTotal21} />
+          </>
+        )}
+
+        {hasCamex && (
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Card className="border-primary-200 hover:shadow-card-hover transition-shadow duration-200">
+              <CardContent className="p-4">
+                <div className="text-xs font-semibold text-primary mb-2">Total com CAMEX a 3,6%</div>
+                <div className="grid grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <div className="text-muted-foreground mb-0.5">ICMS Recolher</div>
+                    <div className="font-bold font-mono tabular-nums text-foreground">{formatCurrency(grandTotal36.icmsRecolher)}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground mb-0.5">Fundos</div>
+                    <div className="font-bold font-mono tabular-nums text-foreground">{formatCurrency(grandTotal36.fundos)}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground mb-0.5">Total</div>
+                    <div className="font-bold font-mono tabular-nums text-foreground">{formatCurrency(grandTotal36.total)}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="hover:shadow-card-hover transition-shadow duration-200">
+              <CardContent className="p-4">
+                <div className="text-xs font-semibold text-foreground mb-2">Total com CAMEX a 2,1%</div>
+                <div className="grid grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <div className="text-muted-foreground mb-0.5">ICMS Recolher</div>
+                    <div className="font-bold font-mono tabular-nums text-foreground">{formatCurrency(grandTotal21.icmsRecolher)}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground mb-0.5">Fundos</div>
+                    <div className="font-bold font-mono tabular-nums text-foreground">{formatCurrency(grandTotal21.fundos)}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground mb-0.5">Total</div>
+                    <div className="font-bold font-mono tabular-nums text-foreground">{formatCurrency(grandTotal21.total)}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-          <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
-            <div className="text-xs font-medium text-purple-600 mb-1">Total com CAMEX a 2,1%</div>
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div><div className="text-purple-500">ICMS Recolher</div><div className="font-bold text-purple-800">{formatCurrency(grandTotal21.icmsRecolher)}</div></div>
-              <div><div className="text-purple-500">Fundos</div><div className="font-bold text-purple-800">{formatCurrency(grandTotal21.fundos)}</div></div>
-              <div><div className="text-purple-500">Total</div><div className="font-bold text-purple-800">{formatCurrency(grandTotal21.total)}</div></div>
-            </div>
-          </div>
-        </div>
+        )}
+        </CardContent>
+      </Card>
+        </>
       )}
     </div>
   );
@@ -209,59 +270,75 @@ export function Dashboard({ results, discardedByCfop = 0, config }: DashboardPro
 
 function AliquotaTable({ groups, grandTotal }: { groups: AliquotaGroup[]; grandTotal: { icmsRecolher: number; fundos: number; total: number } }) {
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="bg-gray-50">
-            <th className="text-left px-3 py-2 font-medium text-gray-600">Grupo</th>
-            <th className="text-right px-3 py-2 font-medium text-gray-600">Itens</th>
-            <th className="text-right px-3 py-2 font-medium text-gray-600">BC ICMS</th>
-            <th className="text-right px-3 py-2 font-medium text-gray-600">ICMS Dest.</th>
-            <th className="text-right px-3 py-2 font-medium text-gray-600">Carga %</th>
-            <th className="text-right px-3 py-2 font-medium text-gray-600">ICMS Recolher</th>
-            <th className="text-right px-3 py-2 font-medium text-gray-600">Fundos 0,4%</th>
-            <th className="text-right px-3 py-2 font-medium text-gray-600">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {groups.map((g, idx) => (
-            <tr key={idx} className="border-t border-gray-100 hover:bg-gray-50">
-              <td className="px-3 py-2 font-medium text-gray-800">{g.label}</td>
-              <td className="px-3 py-2 text-right text-gray-700">{g.itens}</td>
-              <td className="px-3 py-2 text-right font-mono text-gray-700">{formatCurrency(g.totalBC)}</td>
-              <td className="px-3 py-2 text-right font-mono text-gray-700">{formatCurrency(g.totalICMSDestacado)}</td>
-              <td className="px-3 py-2 text-right text-gray-600">{g.cargaPct > 0 ? `${g.cargaPct}%` : '-'}</td>
-              <td className="px-3 py-2 text-right font-mono text-blue-700">{formatCurrency(g.icmsRecolher)}</td>
-              <td className="px-3 py-2 text-right font-mono text-purple-700">{formatCurrency(g.fundos)}</td>
-              <td className="px-3 py-2 text-right font-mono font-semibold text-gray-800">{formatCurrency(g.total)}</td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="border-t-2 border-gray-300 bg-gray-50 font-semibold">
-            <td className="px-3 py-2 text-gray-800" colSpan={5}>Total</td>
-            <td className="px-3 py-2 text-right font-mono text-blue-800">{formatCurrency(grandTotal.icmsRecolher)}</td>
-            <td className="px-3 py-2 text-right font-mono text-purple-800">{formatCurrency(grandTotal.fundos)}</td>
-            <td className="px-3 py-2 text-right font-mono text-gray-900">{formatCurrency(grandTotal.total)}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
+    <Card className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <Table className="min-w-[640px] text-xs">
+          <TableHeader>
+            <TableRow className="bg-muted">
+              <TableHead className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Grupo</TableHead>
+              <TableHead className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Itens</TableHead>
+              <TableHead className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">BC ICMS</TableHead>
+              <TableHead className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">ICMS Dest.</TableHead>
+              <TableHead className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Carga %</TableHead>
+              <TableHead className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">ICMS Recolher</TableHead>
+              <TableHead className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Fundos 0,4%</TableHead>
+              <TableHead className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Total</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="divide-y divide-border">
+            {groups.map((g, idx) => (
+              <TableRow key={idx} className="hover:bg-muted/60 transition-colors duration-150">
+                <TableCell className="px-4 py-2.5 font-medium text-foreground">{g.label}</TableCell>
+                <TableCell className="px-4 py-2.5 text-right text-muted-foreground">{g.itens}</TableCell>
+                <TableCell className="px-4 py-2.5 text-right font-mono tabular-nums text-foreground">{formatCurrency(g.totalBC)}</TableCell>
+                <TableCell className="px-4 py-2.5 text-right font-mono tabular-nums text-foreground">{formatCurrency(g.totalICMSDestacado)}</TableCell>
+                <TableCell className="px-4 py-2.5 text-right text-muted-foreground">{g.cargaPct > 0 ? `${g.cargaPct}%` : '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 text-right font-mono tabular-nums text-primary">{formatCurrency(g.icmsRecolher)}</TableCell>
+                <TableCell className="px-4 py-2.5 text-right font-mono tabular-nums text-foreground">{formatCurrency(g.fundos)}</TableCell>
+                <TableCell className="px-4 py-2.5 text-right font-mono tabular-nums font-semibold text-foreground">{formatCurrency(g.total)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+          <TableFooter>
+            <TableRow className="bg-muted font-semibold border-t-2 border-border">
+              <TableCell className="px-4 py-2.5 text-foreground" colSpan={5}>Total</TableCell>
+              <TableCell className="px-4 py-2.5 text-right font-mono tabular-nums text-primary">{formatCurrency(grandTotal.icmsRecolher)}</TableCell>
+              <TableCell className="px-4 py-2.5 text-right font-mono tabular-nums text-foreground">{formatCurrency(grandTotal.fundos)}</TableCell>
+              <TableCell className="px-4 py-2.5 text-right font-mono tabular-nums text-foreground">{formatCurrency(grandTotal.total)}</TableCell>
+            </TableRow>
+          </TableFooter>
+        </Table>
+      </div>
+    </Card>
   );
 }
 
-function TotalCard({ label, value, accent }: { label: string; value: number; accent?: string }) {
-  const colors: Record<string, string> = {
-    blue: 'text-blue-700 bg-blue-50 border-blue-200',
-    purple: 'text-purple-700 bg-purple-50 border-purple-200',
-    red: 'text-red-700 bg-red-50 border-red-200',
+function TotalCard({ label, value, accent, icon, className = '' }: { label: string; value: number; accent?: string; icon?: React.ReactNode; className?: string }) {
+  const accentStyles: Record<string, { bg: string; iconBg: string; iconColor: string; valueColor: string }> = {
+    blue: { bg: 'bg-primary-50 border-primary-200/60', iconBg: 'bg-primary/10', iconColor: 'text-primary', valueColor: 'text-primary' },
+    red: { bg: 'bg-danger-50 border-danger-200/60', iconBg: 'bg-danger-500/10', iconColor: 'text-danger-600', valueColor: 'text-danger-700' },
   };
-  const cls = accent ? colors[accent] ?? 'text-gray-700 bg-gray-50 border-gray-200' : 'text-gray-700 bg-gray-50 border-gray-200';
+  const style = accent ? accentStyles[accent] : undefined;
 
   return (
-    <div className={`rounded-lg border p-3 ${cls}`}>
-      <div className="text-xs font-medium opacity-75">{label}</div>
-      <div className="text-sm font-bold mt-1">{formatCurrency(value)}</div>
-    </div>
+    <Card className={cn(
+      'overflow-hidden transition-all duration-200 hover:shadow-md',
+      style?.bg,
+      className
+    )}>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider leading-tight">{label}</p>
+            <p className={cn('text-lg font-bold font-mono tabular-nums mt-1.5', style?.valueColor ?? 'text-foreground')}>{formatCurrency(value)}</p>
+          </div>
+          {icon && (
+            <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center shrink-0', style?.iconBg ?? 'bg-muted')}>
+              <span className={style?.iconColor ?? 'text-muted-foreground'}>{icon}</span>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -1,3 +1,4 @@
+import path from 'path'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -14,7 +15,12 @@ function gitHashPlugin(): Plugin {
     },
     load(id) {
       if (id === resolvedId) {
-        const hash = execSync('git rev-parse --short HEAD').toString().trim()
+        let hash = 'unknown'
+        try {
+          hash = execSync('git rev-parse --short HEAD').toString().trim()
+        } catch {
+          // Not a git repository (e.g. downloaded zip)
+        }
         return `export const commitHash = ${JSON.stringify(hash)};`
       }
     },
@@ -29,6 +35,11 @@ function gitHashPlugin(): Plugin {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), gitHashPlugin()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   define: {
     __BUILD_TIMESTAMP__: JSON.stringify(new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })),
   },

@@ -30,7 +30,7 @@ describe('validarNfe', () => {
   it('should flag wrong aliquota', () => {
     const nfe = makeNfe({
       dest: makeDest({ uf: 'PR', indIEDest: '1' }),
-      itens: [makeItem({ ncm: '84713019', cfop: '6101', cst: '090', pICMS: 12 })],
+      itens: [makeItem({ ncm: '84713019', cfop: '6101', cst: '090', pICMS: 12, cCredPresumido: 'CP123' })],
     });
     const config = makeConfig();
     const result = validarNfe(nfe, config);
@@ -81,7 +81,7 @@ describe('validarNfe', () => {
       dest: makeDest({ uf: 'PR', indIEDest: '1' }),
       itens: [
         makeItem({ nItem: '1', ncm: '84713019', cfop: '6101', cst: '090', pICMS: 4 }),
-        makeItem({ nItem: '2', ncm: '84713019', cfop: '6101', cst: '090', pICMS: 12 }),
+        makeItem({ nItem: '2', ncm: '84713019', cfop: '6101', cst: '090', pICMS: 12, cCredPresumido: 'CP123' }),
       ],
     });
     const config = makeConfig();

@@ -101,7 +101,7 @@ function crossChecks10(
   const checks: CrossCheck[] = [
     { label: 'Remessa interna (SC para SC)?', severity: assignMandatorySeverity(isInterna), passed: isInterna, regra: 'CK10A' },
     { label: 'Dest. na lista de industriais?', severity: cenario.id === 'B3' ? assignOrSeverity(isIndustrial, anyOrPassed) : assignMandatorySeverity(isIndustrial), passed: isIndustrial, regra: 'CK10B' },
-    { label: 'CNAE é de atividade industrial?', severity: cenario.id === 'B3' ? assignOrSeverity(cnaeIndustrial, anyOrPassed) : assignOrSeverity(cnaeIndustrial, cnaeIndustrial), passed: cnaeIndustrial, regra: 'CK10E' },
+    { label: 'CNAE de atividade industrial?', severity: cenario.id === 'B3' ? assignOrSeverity(cnaeIndustrial, anyOrPassed) : assignOrSeverity(cnaeIndustrial, cnaeIndustrial), passed: cnaeIndustrial, regra: 'CK10E' },
     { label: 'Dest. NÃO é optante do Simples Nacional?', severity: assignMandatorySeverity(!isSN), passed: !isSN, regra: 'CK10C' },
     { label: 'Dest. NÃO é não-contribuinte?', severity: assignMandatorySeverity(!isNC), passed: !isNC, regra: 'CK10D' },
   ];
@@ -244,10 +244,25 @@ export function validarAliquota(
       };
     }
 
+    // 12%+ sem crédito presumido → ALERTA (atenção), apenas quando cenário espera CP
+    // Exceção: CST tributação 20 + pRedBC → BC reduzida justifica a alíquota
+    const bcReduzidaJustifica = isBCReduzida(item);
+    if (found >= 12 && !item.cCredPresumido && cenario.temCP && !bcReduzidaJustifica) {
+      return {
+        result: {
+          status: 'ALERTA',
+          mensagem: `Alíquota ${found}% conforme cenário ${cenario.id}, porém sem informação de crédito presumido (verificar).`,
+          regra: 'AL08',
+          cenario: cenario.id,
+        },
+        crossChecks: crossResult?.checks ?? [],
+      };
+    }
+
     return {
       result: {
         status: 'OK',
-        mensagem: `Aliquota ${found}% conforme cenario ${cenario.id}.`,
+        mensagem: `Alíquota ${found}% conforme cenário ${cenario.id}.`,
         regra: 'AL01',
         cenario: cenario.id,
       },
@@ -265,6 +280,19 @@ export function validarAliquota(
     checks = crossChecks04(item, dest, config, cenario).checks;
   } else if (Math.abs(found - 17) < 0.01) {
     checks = crossChecks17(item, dest, config).checks;
+  }
+
+  // Sem CP + alíquota 12%+ → empresa não usa TTD, alíquota normal está correta
+  if (!item.cCredPresumido && found >= 12) {
+    return {
+      result: {
+        status: 'ALERTA',
+        mensagem: `Alíquota ${found}% diferente do cenário ${cenario.id} (esperado ${aceitas.join('% ou ')}%), porém sem crédito presumido — possível não utilização do TTD.`,
+        regra: 'AL09',
+        cenario: cenario.id,
+      },
+      crossChecks: checks,
+    };
   }
 
   return {

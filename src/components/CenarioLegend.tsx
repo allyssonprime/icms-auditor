@@ -1,5 +1,9 @@
 import { useState } from 'react';
 import { CENARIOS } from '../engine/cenarios.ts';
+import { BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+
 
 const CENARIO_GROUPS = [
   {
@@ -16,20 +20,28 @@ export function CenarioLegend() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 mb-6">
-      <button
+    <Card className="rounded-xl shadow-sm mb-6">
+      <Button
+        variant="ghost"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-6 py-3 text-left hover:bg-gray-50"
+        className="w-full flex items-center justify-between px-5 py-3 h-auto rounded-xl"
       >
-        <h2 className="text-sm font-semibold text-gray-700">Legenda de Cenarios</h2>
-        <span className="text-gray-400 text-sm">{open ? '\u25B2' : '\u25BC'}</span>
-      </button>
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+            <BookOpen size={14} className="text-primary" />
+          </div>
+          Legenda de Cenarios
+        </h2>
+        <span className="text-muted-foreground">
+          {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </span>
+      </Button>
 
       {open && (
-        <div className="px-6 pb-4">
+        <CardContent className="px-5 pb-4 pt-0">
           {CENARIO_GROUPS.map(group => (
             <div key={group.title} className="mb-4 last:mb-0">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 {group.title}
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
@@ -38,11 +50,11 @@ export function CenarioLegend() {
                   if (!c) return null;
                   return (
                     <div key={id} className="flex items-start gap-2 text-xs py-1">
-                      <span className="font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded shrink-0 min-w-[60px] text-center">
+                      <span className="font-mono font-bold text-primary-700 bg-primary-50 px-1.5 py-0.5 rounded text-center shrink-0 min-w-[60px]">
                         {id}
                       </span>
-                      <span className="text-gray-600">{c.nome}</span>
-                      <span className="text-gray-400 ml-auto shrink-0">
+                      <span className="text-foreground">{c.nome}</span>
+                      <span className="text-muted-foreground ml-auto shrink-0">
                         {c.aliquotasAceitas.length > 0
                           ? c.aliquotasAceitas.map(a => `${a}%`).join('/')
                           : 'dif.'}
@@ -54,27 +66,27 @@ export function CenarioLegend() {
             </div>
           ))}
 
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+          <div className="mt-3 pt-3 border-t border-border">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
               Outros
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
               <div className="flex items-start gap-2 py-1">
-                <span className="font-mono font-bold text-yellow-700 bg-yellow-50 px-1.5 py-0.5 rounded shrink-0 min-w-[60px] text-center">DEVOLUCAO</span>
-                <span className="text-gray-600">Devolucao de mercadoria (estornar CP)</span>
+                <span className="font-mono font-bold text-warning-700 bg-warning-50 px-1.5 py-0.5 rounded text-center shrink-0 min-w-[60px]">DEVOLUCAO</span>
+                <span className="text-foreground">Devolucao de mercadoria (estornar CP)</span>
               </div>
               <div className="flex items-start gap-2 py-1">
-                <span className="font-mono font-bold text-red-700 bg-red-50 px-1.5 py-0.5 rounded shrink-0 min-w-[60px] text-center">VEDADO</span>
-                <span className="text-gray-600">Item vedado (Decreto 2128 ou similar)</span>
+                <span className="font-mono font-bold text-danger-700 bg-danger-50 px-1.5 py-0.5 rounded text-center shrink-0 min-w-[60px]">VEDADO</span>
+                <span className="text-foreground">Item vedado (Decreto 2128 ou similar)</span>
               </div>
               <div className="flex items-start gap-2 py-1">
-                <span className="font-mono font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded shrink-0 min-w-[60px] text-center">DESC.</span>
-                <span className="text-gray-600">Cenario nao identificado (verificar manual)</span>
+                <span className="font-mono font-bold text-foreground bg-muted px-1.5 py-0.5 rounded text-center shrink-0 min-w-[60px]">DESC.</span>
+                <span className="text-foreground">Cenario nao identificado (verificar manual)</span>
               </div>
             </div>
           </div>
-        </div>
+        </CardContent>
       )}
-    </div>
+    </Card>
   );
 }

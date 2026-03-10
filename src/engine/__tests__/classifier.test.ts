@@ -33,9 +33,10 @@ describe('classificarCenario', () => {
   });
 
   it('A8: interstate + copper/steel + contributor', () => {
+    const cfg = makeConfig({ listaCobreAco: ['7401'] });
     const item = makeItem({ ncm: '74011000', cfop: '6101', cst: '090' });
     const dest = makeDest({ uf: 'SP', indIEDest: '1' });
-    expect(classificarCenario(item, dest, config)).toBe('A8');
+    expect(classificarCenario(item, dest, cfg)).toBe('A8');
   });
 
   it('A9: transfer interstate', () => {
@@ -117,6 +118,34 @@ describe('classificarCenario', () => {
     const item = makeItem({ ncm: '84713019', cfop: '5101' });
     const dest = makeDest({ uf: 'SC', indIEDest: '1', cnpj: '12345678000199' });
     expect(classificarCenario(item, dest, cfg)).toBe('B2');
+  });
+
+  it('B2: CST origem 6 (CAMEX) even if NCM not in listaCamex → classified as CAMEX', () => {
+    const cfg = makeConfig({ listaIndustriais: ['12345678000199'], listaCamex: [] });
+    const item = makeItem({ ncm: '99999999', cstOrig: '6', cfop: '5101' });
+    const dest = makeDest({ uf: 'SC', indIEDest: '1', cnpj: '12345678000199' });
+    expect(classificarCenario(item, dest, cfg)).toBe('B2');
+  });
+
+  it('A2: CST origem 6 (CAMEX) interstate → classified as CAMEX', () => {
+    const cfg = makeConfig({ listaCamex: [] });
+    const item = makeItem({ ncm: '99999999', cstOrig: '6', cfop: '6101' });
+    const dest = makeDest({ uf: 'SP', indIEDest: '1' });
+    expect(classificarCenario(item, dest, cfg)).toBe('A2');
+  });
+
+  it('A4: interstate + SN in listaSN but NO IE → NC takes priority over SN', () => {
+    const cfg = makeConfig({ listaSN: ['12345678000199'] });
+    const item = makeItem({ cfop: '6101' });
+    const dest = makeDest({ uf: 'SP', indIEDest: '9', cnpj: '12345678000199' });
+    expect(classificarCenario(item, dest, cfg)).toBe('A4');
+  });
+
+  it('B6: internal + SN in listaSN but NO IE → NC takes priority over SN', () => {
+    const cfg = makeConfig({ listaSN: ['12345678000199'] });
+    const item = makeItem({ cfop: '5102' });
+    const dest = makeDest({ uf: 'SC', indIEDest: '9', cnpj: '12345678000199' });
+    expect(classificarCenario(item, dest, cfg)).toBe('B6');
   });
 
   it('DEVOLUCAO: return CFOP', () => {

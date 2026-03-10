@@ -4,10 +4,17 @@ export type ParseResult =
   | { success: true; data: NfeData }
   | { success: false; error: string };
 
-function stripNamespaces(xml: string): string {
-  return xml
+function sanitizeXml(xml: string): string {
+  // Remove BOM if present
+  let clean = xml.replace(/^\uFEFF/, '');
+  // Remove duplicate <?xml ...?> declarations (common in NFe cancelada files
+  // where procEventoNFe is concatenated after nfeProc)
+  clean = clean.replace(/<\?xml\s[^?]*\?>\s*/g, '');
+  // Strip namespace declarations
+  clean = clean
     .replace(/\s+xmlns\s*=\s*"[^"]*"/g, '')
     .replace(/\s+xmlns:\w+\s*=\s*"[^"]*"/g, '');
+  return clean;
 }
 
 function getText(parent: Element, tagName: string): string {
@@ -110,7 +117,7 @@ function parseItem(det: Element): ItemData {
 
 export function parseNfe(xmlString: string, fileName: string = ''): ParseResult {
   try {
-    const cleanXml = stripNamespaces(xmlString);
+    const cleanXml = sanitizeXml(xmlString);
     const parser = new DOMParser();
     const doc = parser.parseFromString(cleanXml, 'text/xml');
 

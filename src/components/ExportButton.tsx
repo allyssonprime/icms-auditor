@@ -1,5 +1,7 @@
 import type { NfeValidation } from '../types/validation.ts';
 import { exportToExcel } from '../utils/exportExcel.ts';
+import { Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface ExportButtonProps {
   results: NfeValidation[];
@@ -9,11 +11,13 @@ export function ExportButton({ results }: ExportButtonProps) {
   if (results.length === 0) return null;
 
   return (
-    <button
+    <Button
       onClick={() => exportToExcel(results)}
-      className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+      size="sm"
+      aria-label="Exportar resultados para Excel"
     >
-      Exportar Excel
-    </button>
+      <Download size={15} aria-hidden />
+      Exportar
+    </Button>
   );
 }

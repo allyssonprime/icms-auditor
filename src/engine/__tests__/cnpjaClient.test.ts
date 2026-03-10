@@ -32,9 +32,13 @@ describe('isIndustrialByDescription', () => {
     expect(isIndustrialByDescription('fabricacao de produtos metalicos')).toBe(true);
   });
 
-  it('should match industria/industrial keywords', () => {
-    expect(isIndustrialByDescription('Indústria química')).toBe(true);
-    expect(isIndustrialByDescription('Atividades industriais diversas')).toBe(true);
+  it('should match "industria de" keywords', () => {
+    expect(isIndustrialByDescription('Indústria de produtos químicos')).toBe(true);
+  });
+
+  it('should not match generic "industrial" or "industriais"', () => {
+    expect(isIndustrialByDescription('Atividades industriais diversas')).toBe(false);
+    expect(isIndustrialByDescription('Máquinas para uso industrial')).toBe(false);
   });
 
   it('should match metalurgia/siderurgia', () => {
@@ -61,19 +65,24 @@ describe('checkIndustrial (primary CNAE only)', () => {
     expect(checkIndustrial('2822401', 'Maquinas')).toBe(true);
   });
 
-  it('should return true if primary description matches industrial keywords', () => {
-    expect(checkIndustrial('4711301', 'Fabricação de pecas metalicas')).toBe(true);
-  });
-
-  it('should return false if primary code and description are non-industrial', () => {
+  it('should return false for comercio varejista even with industrial keywords in description', () => {
+    // Div 47 is in NON_INDUSTRIAL_DIVISIONS — description keywords are ignored
+    expect(checkIndustrial('4711301', 'Fabricação de pecas metalicas')).toBe(false);
     expect(checkIndustrial('4711301', 'Comercio varejista')).toBe(false);
   });
 
   it('should not flag comércio atacadista (CNAE 46) as industrial', () => {
     expect(checkIndustrial('4665600', 'Comércio atacadista de máquinas e equipamentos')).toBe(false);
+    expect(checkIndustrial('4663000', 'Comércio atacadista de Máquinas e equipamentos para uso industrial; partes e peças')).toBe(false);
   });
 
   it('should not flag serviços (CNAE 82) as industrial', () => {
     expect(checkIndustrial('8211300', 'Serviços combinados de escritório e apoio administrativo')).toBe(false);
+  });
+
+  it('should use description keywords for ambiguous divisions (e.g. 01-04)', () => {
+    // Division 01 (agricultura) is not in NON_INDUSTRIAL_DIVISIONS, so description is checked
+    expect(checkIndustrial('0111301', 'Beneficiamento de arroz')).toBe(true);
+    expect(checkIndustrial('0111301', 'Cultivo de arroz')).toBe(false);
   });
 });

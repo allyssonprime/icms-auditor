@@ -1,64 +1,66 @@
 import type { ItemValidation, CrossCheckSeverity } from '../types/validation.ts';
 import { CENARIOS } from '../engine/cenarios.ts';
 import { formatNCM } from '../utils/formatters.ts';
+import { Check, AlertTriangle, X, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface ItemDetailProps {
   iv: ItemValidation;
 }
 
 const statusBg: Record<string, string> = {
-  OK: 'bg-green-50 border-green-200',
-  ALERTA: 'bg-yellow-50 border-yellow-200',
-  ERRO: 'bg-red-50 border-red-200',
+  OK: 'bg-card border-border',
+  ALERTA: 'bg-warning-50/40 border-warning-200/60',
+  ERRO: 'bg-danger-50/40 border-danger-200/60',
 };
 
 const dotColors: Record<string, string> = {
-  OK: 'bg-green-500',
-  ALERTA: 'bg-yellow-400',
-  ERRO: 'bg-red-500',
-};
-
-const severityIcon: Record<CrossCheckSeverity, string> = {
-  ok: '\u2713',
-  atencao: '\u26A0',
-  divergente: '\u2717',
+  OK: 'bg-success-400',
+  ALERTA: 'bg-warning-400',
+  ERRO: 'bg-danger-500',
 };
 
 const severityColor: Record<CrossCheckSeverity, string> = {
-  ok: 'text-green-600',
-  atencao: 'text-yellow-600',
-  divergente: 'text-red-500',
+  ok: 'text-success-600',
+  atencao: 'text-warning-600',
+  divergente: 'text-danger-500',
 };
 
 const severityLabelColor: Record<CrossCheckSeverity, string> = {
-  ok: 'text-gray-600',
-  atencao: 'text-yellow-700 font-medium',
-  divergente: 'text-red-700 font-medium',
+  ok: 'text-muted-foreground',
+  atencao: 'text-warning-700 font-medium',
+  divergente: 'text-danger-700 font-medium',
 };
+
+function SeverityIcon({ severity }: { severity: CrossCheckSeverity }) {
+  if (severity === 'ok') return <Check size={12} className="text-success-500" />;
+  if (severity === 'atencao') return <AlertTriangle size={12} className="text-warning-500" />;
+  return <X size={12} className="text-danger-500" />;
+}
 
 function findResult(iv: ItemValidation, prefix: string) {
   return iv.resultados.find(r => r.regra.startsWith(prefix));
 }
 
 function CheckIcon({ status }: { status: string }) {
-  if (status === 'OK') return <span className="text-green-600 font-bold">OK</span>;
-  if (status === 'ALERTA') return <span className="text-yellow-600 font-bold">!</span>;
-  return <span className="text-red-600 font-bold">X</span>;
+  if (status === 'OK') return <CheckCircle2 size={14} className="text-success-500" />;
+  if (status === 'ALERTA') return <AlertCircle size={14} className="text-warning-500" />;
+  return <XCircle size={14} className="text-danger-600" />;
 }
 
 function CompareCell({ actual, expected, status }: { actual: string; expected: string; status: string }) {
   const isMatch = status === 'OK';
   const isError = status === 'ERRO';
-
   return (
-    <div className="flex items-center gap-2">
-      <span className={`font-mono font-semibold ${isError ? 'text-red-700' : isMatch ? 'text-green-800' : 'text-yellow-700'}`}>
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <span className={cn('font-mono font-semibold', isError ? 'text-danger-700' : isMatch ? 'text-success-700' : 'text-warning-700')}>
         {actual}
       </span>
       {!isMatch && (
         <>
-          <span className="text-gray-400 text-[10px]">esperado</span>
-          <span className="font-mono text-gray-600">{expected}</span>
+          <span className="text-muted-foreground/70 text-[10px]">esperado</span>
+          <span className="font-mono text-muted-foreground text-[10px]">{expected}</span>
         </>
       )}
     </div>
@@ -73,160 +75,187 @@ export function ItemDetail({ iv }: ItemDetailProps) {
   const cstResult = findResult(iv, 'CST');
   const cfopResult = findResult(iv, 'CF');
 
-  const aliqEsperada = cenario
-    ? cenario.aliquotasAceitas.map(a => `${a}%`).join(' / ')
-    : '-';
+  const aliqEsperada = cenario ? cenario.aliquotasAceitas.map(a => `${a}%`).join(' / ') : '-';
   const cstOrigEsperado = '1 / 6 / 7';
-  const cfopEsperado = cenario
-    ? cenario.cfopsEsperados.join(' / ')
-    : '-';
+  const cfopEsperado = cenario ? cenario.cfopsEsperados.join(' / ') : '-';
 
   const aliqStatus = aliqResult?.status ?? 'OK';
   const cstStatus = cstResult?.status ?? 'OK';
   const cfopStatus = cfopResult?.status ?? 'OK';
 
   const nonOkResults = iv.resultados.filter(r => r.status !== 'OK');
-
   const hasCP = !!iv.item.cCredPresumido;
+  const isOk = iv.statusFinal === 'OK';
+
+  const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
-    <div className={`rounded-lg border p-3 mb-2 ${statusBg[iv.statusFinal] ?? 'bg-gray-50 border-gray-200'}`}>
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-2">
-        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotColors[iv.statusFinal] ?? 'bg-gray-400'}`} />
-        <span className="font-semibold text-sm text-gray-800">
-          Item {iv.item.nItem}
-        </span>
-        <span className="font-mono text-sm text-gray-600">{formatNCM(iv.item.ncm)}</span>
-        <span className="text-xs text-gray-500 truncate">{iv.item.descricao}</span>
+    <div className={cn('rounded-lg border px-3 py-2 mb-1.5', statusBg[iv.statusFinal] ?? 'bg-card border-border')}>
+
+      {/* -- Linha principal (sempre visivel, compacta) -- */}
+      <div className="flex items-center gap-2 flex-wrap min-w-0">
+        <span className={cn('w-1.5 h-1.5 rounded-full shrink-0 mt-px', dotColors[iv.statusFinal] ?? 'bg-muted-foreground')} />
+
+        {/* Item N */}
+        <span className="text-xs font-semibold text-foreground shrink-0">Item {iv.item.nItem}</span>
+
+        {/* NCM */}
+        <span className="font-mono text-xs text-muted-foreground shrink-0">{formatNCM(iv.item.ncm)}</span>
+
+        {/* Descricao */}
+        {iv.item.descricao && (
+          <span className="text-xs text-muted-foreground/70 truncate min-w-0 max-w-[200px]" title={iv.item.descricao}>
+            {iv.item.descricao}
+          </span>
+        )}
+
+        {/* Separador */}
+        <span className="text-border shrink-0">&middot;</span>
+
+        {/* Cenario badge */}
+        <Badge className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-primary-50 text-primary-700 border-primary-100 shrink-0">
+          {iv.cenario}
+        </Badge>
+        <span className="text-[10px] text-muted-foreground/70 truncate hidden sm:inline">{cenarioNome}</span>
+
+        {/* CP badge */}
         {hasCP && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium shrink-0">
+          <Badge className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border-purple-200/60 font-semibold shrink-0">
             CP {iv.item.cCredPresumido}
+          </Badge>
+        )}
+
+        {/* Valores financeiros inline */}
+        <span className="text-border shrink-0">&middot;</span>
+        <span className="text-[10px] text-muted-foreground/70 shrink-0">
+          BC <span className="font-mono text-muted-foreground font-medium">{fmtBRL(iv.item.vBC)}</span>
+        </span>
+        <span className="text-[10px] text-muted-foreground/70 shrink-0">
+          ICMS <span className="font-mono text-muted-foreground font-medium">{fmtBRL(iv.item.vICMS)}</span>
+        </span>
+
+        {/* Status check icons inline (para OK, compacto) */}
+        {isOk && (
+          <>
+            <span className="text-border shrink-0">&middot;</span>
+            <span className="flex items-center gap-1 shrink-0">
+              <span className="text-[10px] text-muted-foreground/70">
+                {iv.item.pICMS}% &middot; CST {iv.item.cst} &middot; CFOP {iv.item.cfop}
+              </span>
+              <CheckCircle2 size={12} className="text-success-500" />
+            </span>
+          </>
+        )}
+
+        {/* Status icons para nao-OK */}
+        {!isOk && (
+          <span className="flex items-center gap-1 ml-auto shrink-0">
+            <CheckIcon status={aliqStatus} />
+            <CheckIcon status={cstStatus} />
+            <CheckIcon status={cfopStatus} />
           </span>
         )}
       </div>
 
-      {/* Cenário */}
-      <div className="mb-2 ml-[18px]">
-        <span className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded bg-white/70 border border-gray-200">
-          <span className="font-mono font-semibold text-gray-700">{iv.cenario}</span>
-          <span className="text-gray-500">{cenarioNome}</span>
-        </span>
-      </div>
+      {/* -- Detalhes expandidos (apenas para itens com problema) -- */}
+      {!isOk && (
+        <div className="mt-2 ml-3.5 space-y-2">
 
-      {/* Comparison grid */}
-      <div className="ml-[18px] border border-gray-200/60 rounded overflow-hidden bg-white/50">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-gray-100/50">
-              <th className="text-left px-2.5 py-1.5 font-medium text-gray-500 w-[90px]">Campo</th>
-              <th className="text-left px-2.5 py-1.5 font-medium text-gray-500">NF-e</th>
-              <th className="text-center px-2.5 py-1.5 font-medium text-gray-500 w-[40px]"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            <tr>
-              <td className="px-2.5 py-1.5 text-gray-600 font-medium">Aliquota</td>
-              <td className="px-2.5 py-1.5">
-                <CompareCell
-                  actual={`${iv.item.pICMS}%`}
-                  expected={aliqEsperada}
-                  status={aliqStatus}
-                />
-              </td>
-              <td className="px-2.5 py-1.5 text-center"><CheckIcon status={aliqStatus} /></td>
-            </tr>
-            <tr>
-              <td className="px-2.5 py-1.5 text-gray-600 font-medium">CST Orig</td>
-              <td className="px-2.5 py-1.5">
-                <CompareCell
-                  actual={`${iv.item.cstOrig} (${iv.item.cst})`}
-                  expected={cstOrigEsperado}
-                  status={cstStatus}
-                />
-              </td>
-              <td className="px-2.5 py-1.5 text-center"><CheckIcon status={cstStatus} /></td>
-            </tr>
-            <tr>
-              <td className="px-2.5 py-1.5 text-gray-600 font-medium">CFOP</td>
-              <td className="px-2.5 py-1.5">
-                <CompareCell
-                  actual={iv.item.cfop}
-                  expected={cfopEsperado}
-                  status={cfopStatus}
-                />
-              </td>
-              <td className="px-2.5 py-1.5 text-center"><CheckIcon status={cfopStatus} /></td>
-            </tr>
-            <tr className="bg-gray-50/50">
-              <td className="px-2.5 py-1.5 text-gray-600 font-medium">BC ICMS</td>
-              <td className="px-2.5 py-1.5 font-mono text-gray-700">
-                {iv.item.vBC.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-              </td>
-              <td className="px-2.5 py-1.5"></td>
-            </tr>
-            <tr className="bg-gray-50/50">
-              <td className="px-2.5 py-1.5 text-gray-600 font-medium">ICMS</td>
-              <td className="px-2.5 py-1.5 font-mono text-gray-700">
-                {iv.item.vICMS.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-              </td>
-              <td className="px-2.5 py-1.5"></td>
-            </tr>
-            {hasCP && (
-              <tr className="bg-purple-50/50">
-                <td className="px-2.5 py-1.5 text-purple-700 font-medium">Cred. Pres.</td>
-                <td className="px-2.5 py-1.5 font-mono text-purple-700">
-                  CP {iv.item.cCredPresumido}
-                  {iv.item.pCredPresumido > 0 && ` (${iv.item.pCredPresumido}%)`}
-                  {iv.item.vCredPresumido > 0 && ` = ${iv.item.vCredPresumido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`}
-                </td>
-                <td className="px-2.5 py-1.5"></td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Messages for non-OK results */}
-      {nonOkResults.length > 0 && (
-        <div className="ml-[18px] mt-2 space-y-1">
-          {nonOkResults.map((r, idx) => (
-            <div
-              key={idx}
-              className={`flex items-start gap-1.5 text-xs rounded px-2 py-1.5 ${
-                r.status === 'ERRO'
-                  ? 'bg-red-100/60 text-red-700'
-                  : 'bg-yellow-100/60 text-yellow-700'
-              }`}
-            >
-              <span className="font-mono font-semibold shrink-0">[{r.regra}]</span>
-              <span>{r.mensagem}</span>
+          {/* Grade de comparacao */}
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            {/* Aliquota */}
+            <div className={cn('rounded-md px-2.5 py-1.5 border', aliqStatus === 'OK' ? 'bg-card border-border' : aliqStatus === 'ERRO' ? 'bg-danger-50 border-danger-200/60' : 'bg-warning-50 border-warning-200/60')}>
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Aliquota</span>
+                <CheckIcon status={aliqStatus} />
+              </div>
+              <CompareCell actual={`${iv.item.pICMS}%`} expected={aliqEsperada} status={aliqStatus} />
             </div>
-          ))}
+            {/* CST */}
+            <div className={cn('rounded-md px-2.5 py-1.5 border', cstStatus === 'OK' ? 'bg-card border-border' : cstStatus === 'ERRO' ? 'bg-danger-50 border-danger-200/60' : 'bg-warning-50 border-warning-200/60')}>
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">CST Orig</span>
+                <CheckIcon status={cstStatus} />
+              </div>
+              <CompareCell actual={`${iv.item.cstOrig} (${iv.item.cst})`} expected={cstOrigEsperado} status={cstStatus} />
+            </div>
+            {/* CFOP */}
+            <div className={cn('rounded-md px-2.5 py-1.5 border', cfopStatus === 'OK' ? 'bg-card border-border' : cfopStatus === 'ERRO' ? 'bg-danger-50 border-danger-200/60' : 'bg-warning-50 border-warning-200/60')}>
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">CFOP</span>
+                <CheckIcon status={cfopStatus} />
+              </div>
+              <CompareCell actual={iv.item.cfop} expected={cfopEsperado} status={cfopStatus} />
+            </div>
+          </div>
+
+          {/* CP (se houver) */}
+          {hasCP && (
+            <div className="text-xs font-mono text-purple-700 bg-purple-50 border border-purple-200/60 rounded-md px-2.5 py-1.5">
+              CP {iv.item.cCredPresumido}
+              {iv.item.pCredPresumido > 0 && ` (${iv.item.pCredPresumido}%)`}
+              {iv.item.vCredPresumido > 0 && ` = ${fmtBRL(iv.item.vCredPresumido)}`}
+            </div>
+          )}
+
+          {/* Mensagens de erro/alerta */}
+          {nonOkResults.length > 0 && (
+            <div className="space-y-1">
+              {nonOkResults.map((r, idx) => (
+                <div
+                  key={idx}
+                  className={cn(
+                    'flex items-start gap-1.5 text-xs rounded-md px-2.5 py-1.5',
+                    r.status === 'ERRO'
+                      ? 'bg-danger-50 text-danger-700 border border-danger-200/60'
+                      : 'bg-warning-50 text-warning-700 border border-warning-200/60'
+                  )}
+                >
+                  <span className="font-mono font-bold shrink-0">[{r.regra}]</span>
+                  <span>{r.mensagem}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Cross-checks */}
+          {iv.crossChecks.length > 0 && (
+            <div>
+              <div className="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wider mb-1">
+                Verificacoes ({iv.item.pICMS}%)
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+                {iv.crossChecks.map((ck, idx) => (
+                  <div key={idx} className="flex items-center gap-1 text-xs">
+                    <span className={cn('shrink-0', severityColor[ck.severity])}>
+                      <SeverityIcon severity={ck.severity} />
+                    </span>
+                    <span className={severityLabelColor[ck.severity]}>{ck.label}</span>
+                    <span className={cn('font-bold ml-0.5', ck.passed ? 'text-success-600' : 'text-danger-500')}>
+                      {ck.passed ? 'SIM' : 'NAO'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Cross-check checklist with 3-level severity */}
-      {iv.crossChecks.length > 0 && (
-        <div className="ml-[18px] mt-2">
-          <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1">
-            Verificacoes ({iv.item.pICMS}%)
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
-            {iv.crossChecks.map((ck, idx) => (
-              <div key={idx} className="flex items-center gap-1.5 text-xs py-0.5">
-                <span className={`shrink-0 w-4 text-center font-bold ${severityColor[ck.severity]}`}>
-                  {severityIcon[ck.severity]}
-                </span>
-                <span className={severityLabelColor[ck.severity]}>
-                  {ck.label}
-                </span>
-                <span className={`font-bold ml-1 ${ck.passed ? 'text-green-600' : 'text-red-500'}`}>
-                  {ck.passed ? 'SIM' : 'NAO'}
-                </span>
-              </div>
-            ))}
-          </div>
+      {/* Cross-checks para itens OK com verificacoes importantes */}
+      {isOk && iv.crossChecks.some(ck => ck.severity !== 'ok') && (
+        <div className="mt-1.5 ml-3.5 flex flex-wrap gap-x-3 gap-y-0.5">
+          {iv.crossChecks.filter(ck => ck.severity !== 'ok').map((ck, idx) => (
+            <div key={idx} className="flex items-center gap-1 text-xs">
+              <span className={cn('shrink-0', severityColor[ck.severity])}>
+                <SeverityIcon severity={ck.severity} />
+              </span>
+              <span className={severityLabelColor[ck.severity]}>{ck.label}</span>
+              <span className={cn('font-bold ml-0.5', ck.passed ? 'text-success-600' : 'text-danger-500')}>
+                {ck.passed ? 'SIM' : 'NAO'}
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </div>

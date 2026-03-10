@@ -23,3 +23,12 @@ export function formatNCM(ncm: string): string {
   if (digits.length !== 8) return ncm;
   return `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6, 8)}`;
 }
+
+export function formatNumberBR(value: number): string {
+  return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+export function parseNumberBR(text: string): number {
+  const cleaned = text.replace(/\./g, '').replace(',', '.');
+  return parseFloat(cleaned) || 0;
+}
