@@ -19,8 +19,9 @@ import { HistoricoPanel } from './components/HistoricoPanel.tsx';
 import { loadFullAppConfig, type EmpresaCadastro } from './firebase/configService.ts';
 import { salvarAuditoria } from './firebase/auditoriaService.ts';
 import { commitHash } from 'virtual:git-hash';
-import { ShieldCheck, Calculator, Settings, RefreshCw, Trash2 } from 'lucide-react';
+import { ShieldCheck, Calculator, Settings, RefreshCw, Trash2, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/auth/AuthContext';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -75,6 +76,7 @@ interface ParseError {
 type ActiveView = 'auditor' | 'cadastros' | 'simulador';
 
 export default function App() {
+  const { logout } = useAuth();
   const [config, setConfig] = useState<AppConfig>(getDefaultConfig);
   const [empresas, setEmpresas] = useState<EmpresaCadastro[]>([]);
   const [configLoading, setConfigLoading] = useState(true);
@@ -347,6 +349,16 @@ export default function App() {
                 </>
               )}
               <ExportButton results={results} />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={logout}
+                title="Sair"
+                className="bg-white/15 text-white border-0 hover:bg-white/25 text-xs"
+              >
+                <LogOut size={13} aria-hidden />
+                <span className="hidden md:inline">Sair</span>
+              </Button>
             </div>
           </div>
         </div>
