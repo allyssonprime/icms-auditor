@@ -19,7 +19,7 @@ describe('validarCFOP', () => {
   it('should alert for wrong direction (5101 for interstate A1)', () => {
     const item = makeItem({ cfop: '5101' });
     const result = validarCFOP(item, CENARIOS['A1']!);
-    expect(result.status).toBe('ALERTA');
+    expect(result.status).toBe('AVISO');
   });
 
   it('should accept transfer CFOP for B12', () => {
@@ -49,6 +49,6 @@ describe('validarCFOP', () => {
   it('should alert for truly unusual CFOP', () => {
     const item = makeItem({ cfop: '6999' });
     const result = validarCFOP(item, CENARIOS['A1']!);
-    expect(result.status).toBe('ALERTA');
+    expect(result.status).toBe('AVISO');
   });
 });

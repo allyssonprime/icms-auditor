@@ -33,6 +33,8 @@ async function resolveFiles(rawFiles: File[]): Promise<File[]> {
       }
     } else if (f.name.toLowerCase().endsWith('.xml')) {
       result.push(f);
+    } else if (f.name.toLowerCase().endsWith('.txt')) {
+      result.push(f);
     }
   }
   return result;
@@ -81,23 +83,21 @@ export function DropZone({ onFiles, isProcessing }: DropZoneProps) {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       className={cn(
-        'relative overflow-hidden rounded-2xl p-8 text-center cursor-pointer transition-all duration-300',
-        isDragOver
-          ? 'bg-primary/10 ring-2 ring-primary ring-offset-2 scale-[1.01]'
-          : 'bg-gradient-to-br from-primary-50 via-white to-primary-100/50 hover:from-primary-100/80 hover:to-primary-50 border border-primary-200/40 hover:border-primary-300/60 hover:shadow-lg',
+        'relative w-full h-56 rounded-xl border-2 border-dashed border-[var(--outline-variant)] bg-surface-lowest flex flex-col items-center justify-center gap-4 transition-[border-color,background-color,transform,box-shadow] duration-200 hover:border-primary/50 hover:bg-primary/5 cursor-pointer overflow-hidden group',
+        isDragOver && 'bg-primary/10 border-primary scale-[1.01] shadow-xl',
         isProcessing && 'opacity-50 pointer-events-none'
       )}
-      aria-label="Arraste XMLs ou ZIPs de NF-e ou clique para selecionar"
+      aria-label="Arraste XMLs, ZIPs de NF-e ou EFD (.txt) ou clique para selecionar"
     >
-      {/* Decorative background circles */}
-      <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-primary/5 pointer-events-none" />
-      <div className="absolute -left-4 -bottom-4 w-24 h-24 rounded-full bg-primary/5 pointer-events-none" />
+      {/* Decorative dot pattern */}
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
+           style={{ backgroundImage: 'radial-gradient(var(--primary) 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
 
       <input
         ref={inputRef}
         type="file"
         multiple
-        accept=".xml,.zip"
+        accept=".xml,.zip,.txt"
         className="hidden"
         onClick={e => e.stopPropagation()}
         onChange={handleInputChange}
@@ -109,23 +109,28 @@ export function DropZone({ onFiles, isProcessing }: DropZoneProps) {
           <div className="text-lg font-semibold text-foreground">Processando...</div>
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-3 relative">
+        <div className="flex flex-col items-center gap-4 relative">
           {isDragOver ? (
-            <div className="w-16 h-16 rounded-2xl bg-primary/15 flex items-center justify-center animate-pulse">
-              <FileUp size={32} className="text-primary" aria-hidden />
+            <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center animate-pulse">
+              <FileUp size={28} className="text-primary" aria-hidden />
             </div>
           ) : (
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-md">
-              <Upload size={28} className="text-white" aria-hidden />
+            <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center text-primary transition-transform group-hover:scale-110">
+              <Upload size={28} className="text-primary" aria-hidden />
             </div>
           )}
-          <div>
-            <div className="text-base font-semibold text-foreground">
-              Arraste os XMLs ou ZIPs de NF-e aqui
+          <div className="text-center">
+            <div className="text-lg font-semibold text-foreground">
+              Arraste os XMLs, ZIPs ou EFD aqui
             </div>
-            <div className="text-sm text-muted-foreground mt-1">
-              ou clique para selecionar (aceita XMLs e arquivos ZIP)
+            <div className="text-sm text-muted-foreground">
+              ou clique para selecionar (aceita XMLs, ZIPs e EFD .txt)
             </div>
+          </div>
+          <div className="flex gap-2 mt-2">
+            <span className="px-3 py-1 bg-surface-container text-xs font-bold rounded-full text-muted-foreground">MAX 250MB</span>
+            <span className="px-3 py-1 bg-surface-container text-xs font-bold rounded-full text-muted-foreground">NFe / CTe</span>
+            <span className="px-3 py-1 bg-surface-container text-xs font-bold rounded-full text-muted-foreground">EFD / SPED</span>
           </div>
         </div>
       )}

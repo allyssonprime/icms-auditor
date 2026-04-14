@@ -1,7 +1,10 @@
-import { CENARIOS } from '../engine/cenarios.ts';
 import type { CenarioConfig } from '../types/cenario.ts';
 import type { AppConfig } from '../types/config.ts';
+import type { RegrasConfig, CamposDerivados, TipoDest, ListaEspecial } from '../types/regras.ts';
+import type { ItemData, NfeData } from '../types/nfe.ts';
 import { isCobreAco } from '../data/cobreAco.ts';
+import { verificarVedacoes } from '../engine/vedacoes.ts';
+import { resolverCenario } from '../engine/classifier.ts';
 import { calcularTTD } from './calculator.ts';
 
 // ── Tipos de entrada ────────────────────────────────────────────
@@ -53,73 +56,66 @@ export interface SimuladorResult {
   vedacaoMsg: string;
 }
 
-// ── Classificação do cenário ────────────────────────────────────
+// ── Converter SimuladorParams em CamposDerivados ─────────────────
 
-function classificarCenarioSimulador(
+function buildCamposDerivadosSimulador(
   params: SimuladorParams,
   config: AppConfig,
-): string {
+): CamposDerivados {
   const isInterestadual = params.destUf.toUpperCase() !== 'SC';
   const isPF = params.isPessoaFisica === true;
   const isNaoContrib = !isPF && params.destRegime === 'nao_contribuinte';
-  const isContrib = params.destRegime === 'normal';
   const isSN = params.destRegime === 'simples_nacional';
+  const isContrib = params.destRegime === 'normal';
 
-  const isCAMEX = params.isCamex === true;
-  const cobreAco = isCobreAco(params.ncm, config.listaCobreAco);
+  let tipoDest: TipoDest = 'desconhecido';
+  if (isPF) tipoDest = 'pf';
+  else if (isNaoContrib) tipoDest = 'pj_nc';
+  else if (isSN) tipoDest = 'sn';
+  else if (isContrib) tipoDest = 'contribuinte';
+
+  const normalizedNcm = params.ncm.replace(/\./g, '');
+  const isCAMEX = params.isCamex === true ||
+    params.cstOrigem === '6' ||
+    config.listaCamex.some(ncm => {
+      const camexNorm = ncm.replace(/\./g, '');
+      return normalizedNcm.startsWith(camexNorm);
+    });
   const temST = params.temST === true;
 
-  // === INTERESTADUAIS ===
-  if (isInterestadual) {
-    if (cobreAco && isContrib && !isCAMEX) return 'A8';
-
-    if (isCAMEX) {
-      if (isContrib || isSN) return 'A2';
-      if (isNaoContrib) return 'A5';
-      if (isPF) return 'A7';
-    }
-
-    if (isContrib || isSN) return 'A1';
-    if (isNaoContrib) return 'A4';
-    if (isPF) return 'A6';
+  let listaEspecial: ListaEspecial | null = null;
+  if (params.destCnpj) {
+    if (config.listaVedacao25a.includes(params.destCnpj)) listaEspecial = 'vedacao25a';
+    else if (config.listaVedacao25b.includes(params.destCnpj)) listaEspecial = 'vedacao25b';
+    else if (config.listaCD.includes(params.destCnpj)) listaEspecial = 'cd';
+    else if (
+      params.isIndustrial === true ||
+      (params.isIndustrial !== false && config.listaIndustriais.includes(params.destCnpj))
+    ) listaEspecial = 'industrial';
   }
 
-  // === INTERNAS (SC) ===
-  // Vedações especiais
-  if (params.destCnpj && config.listaVedacao25a.includes(params.destCnpj)) return 'B9';
-  if (params.destCnpj && config.listaVedacao25b.includes(params.destCnpj)) return 'B10';
-
-  // CD exclusivo
-  if (params.destCnpj && config.listaCD.includes(params.destCnpj)) return 'B11';
-
-  // Pessoa Física — SEM crédito presumido
-  if (isPF) return 'B7';
-
-  // PJ Não Contribuinte
-  if (isNaoContrib) return isCAMEX ? 'B6-CAMEX' : 'B6';
-
-  // Simples Nacional
-  if (isSN) {
-    if (temST) return isCAMEX ? 'B4-CAMEX' : 'B4';
-    return isCAMEX ? 'B5-CAMEX' : 'B5';
-  }
-
-  // Contribuinte Normal
-  if (isContrib) {
-    if (isCAMEX) return 'B2';
-    if (params.isIndustrial === true) return 'B3';
-    // Only check list when isIndustrial was not explicitly set to false
-    if (params.isIndustrial !== false && params.destCnpj && config.listaIndustriais.includes(params.destCnpj)) return 'B3';
-    return 'B1';
-  }
-
-  return 'DESCONHECIDO';
+  return {
+    operacao: isInterestadual ? 'interestadual' : 'interna',
+    tipoDest,
+    isCAMEX,
+    isCobreAco: isCobreAco(params.ncm, config.listaCobreAco),
+    temST,
+    cfopMatch: null,
+    listaEspecial,
+    aplicacao: params.aplicacao ?? null,
+  };
 }
 
 // ── Observações por cenário ─────────────────────────────────────
 
-function gerarObservacoes(cenarioId: string, params: SimuladorParams): string[] {
+function gerarObservacoes(
+  cenarioId: string,
+  params: SimuladorParams,
+  derivados: CamposDerivados,
+  cenario: CenarioConfig | undefined,
+): string[] {
   const obs: string[] = [];
+  const cfg = cenario; // alias preserves original body without renaming every cfg reference
 
   switch (cenarioId) {
     case 'B3':
@@ -155,22 +151,18 @@ function gerarObservacoes(cenarioId: string, params: SimuladorParams): string[] 
       break;
   }
 
-  // Alertas gerais
-  if (cenarioId !== 'B7' && cenarioId !== 'B9' && cenarioId !== 'B12' && cenarioId !== 'DESCONHECIDO') {
+  if (cfg && cfg.fundos > 0) {
     obs.push('Fundos 0,4% sobre BC integral (FUMDES + FIA — Portaria SEF 143/2022).');
   }
 
-  // CAMEX
-  if (['A2', 'A5', 'A7', 'B2', 'B4-CAMEX', 'B5-CAMEX', 'B6-CAMEX'].includes(cenarioId)) {
+  if (derivados.isCAMEX && derivados.operacao === 'interestadual') {
     obs.push('NCM sem similar nacional (CAMEX) — alíquota interestadual 12% ou 7% conforme UF.');
   }
 
-  // Alerta para SN sem ST interno
   if (cenarioId === 'B5' || cenarioId === 'B5-CAMEX') {
     obs.push('SN sem ST: destaque com alíquota interna (12%/17%). Sem diferimento parcial.');
   }
 
-  // Industrial com 4%
   if (cenarioId === 'B1' && params.destCnpj) {
     obs.push('Se destinatário é industrial, considerar opção 10% (cenário B3) — mais crédito para o cliente.');
   }
@@ -180,21 +172,27 @@ function gerarObservacoes(cenarioId: string, params: SimuladorParams): string[] 
 
 // ── Escolher alíquota default ───────────────────────────────────
 
-function escolherAliquotaDefault(cenario: CenarioConfig, destUf: string, config: AppConfig): number {
+function escolherAliquotaDefault(
+  cenario: CenarioConfig,
+  destUf: string,
+  config: AppConfig,
+  derivados: CamposDerivados,
+): number {
   if (cenario.aliquotasAceitas.length === 0) return 0;
   if (cenario.aliquotasAceitas.length === 1) return cenario.aliquotasAceitas[0];
 
-  // Para cenários CAMEX interestaduais: usar alíquota conforme UF destino
-  if (['A2', 'A5', 'A7'].includes(cenario.id)) {
+  // CAMEX interestadual com múltiplas alíquotas: usar alíquota conforme UF destino
+  if (derivados.isCAMEX && derivados.operacao === 'interestadual') {
     const ufUpper = destUf.toUpperCase();
     if (config.ufAliquotas[ufUpper]) return config.ufAliquotas[ufUpper];
-    // Default: 7% para N/NE/CO/ES, 12% para S/SE
     const ufs12 = ['PR', 'RJ', 'RS', 'SP'];
     return ufs12.includes(ufUpper) ? 12 : 7;
   }
 
-  // B3 (industrial): default 10% (é a opção que beneficia o cliente)
-  if (cenario.id === 'B3') return 10;
+  // Industrial com múltiplas alíquotas: default é a maior (beneficia o cliente)
+  if (derivados.listaEspecial === 'industrial' && cenario.aliquotasAceitas.length > 1) {
+    return Math.max(...cenario.aliquotasAceitas);
+  }
 
   // Cenários com alíquota interna: default 17%
   if (cenario.aliquotasAceitas.includes(17)) return 17;
@@ -204,28 +202,37 @@ function escolherAliquotaDefault(cenario: CenarioConfig, destUf: string, config:
 
 // ── Simulador principal ─────────────────────────────────────────
 
-// ── Verificar vedação por NCM (Decreto 2.128) ─────────────────
+export function simular(params: SimuladorParams, config: AppConfig, regras: RegrasConfig): SimuladorResult {
+  const itemShim = {
+    ncm: params.ncm,
+    cfop: '',
+    pICMS: 0,
+    cCredPresumido: '',
+    cst: params.temST ? '010' : '000',
+    cstOrig: params.cstOrigem ?? '1',
+  } as ItemData;
+  const nfeShim = {
+    emitUF: 'SC',
+    dest: {
+      uf: params.destUf,
+      cnpj: params.destCnpj ?? '',
+      cpf: params.isPessoaFisica ? 'PF' : '',
+      indIEDest: params.destRegime === 'normal' ? '1' : '9',
+      ie: params.destRegime === 'normal' ? 'ACTIVE' : '',
+    },
+  } as NfeData;
 
-function verificarVedacaoNCM(ncm: string, config: AppConfig): string | null {
-  const normalized = ncm.replace(/\./g, '');
-  for (const prefix of config.decreto2128) {
-    const normalizedPrefix = prefix.replace(/\./g, '');
-    if (normalized.startsWith(normalizedPrefix)) {
-      return `NCM ${ncm} vedada pelo Decreto 2.128/SC. TTD 410 NAO pode ser aplicado.`;
-    }
-  }
-  return null;
-}
+  const vedacaoResults = verificarVedacoes(itemShim, nfeShim, config, regras);
+  const isVedado = vedacaoResults.some(v => v.status === 'ERRO');
+  const vedacaoMsg = vedacaoResults.map(v => v.mensagem).join(' | ');
 
-export function simular(params: SimuladorParams, config: AppConfig): SimuladorResult {
-  // Check vedacao BEFORE classifying cenario
-  const vedacaoMsg = verificarVedacaoNCM(params.ncm, config);
-  const isVedado = vedacaoMsg !== null;
+  const derivados = buildCamposDerivadosSimulador(params, config);
+  const resolvido = resolverCenario(regras.grupos, derivados);
+  const cenarioId = resolvido?.cenarioId ?? 'DESCONHECIDO';
+  // Usa resolvido.config (config da branch que efetivamente bateu), não cenarios[cenarioId]
+  // (getCenarios sobrescreve com a última branch de mesmo cenarioId, ignorando a branch vencedora)
+  const cenario = resolvido?.config;
 
-  const cenarioId = classificarCenarioSimulador(params, config);
-  const cenario = CENARIOS[cenarioId];
-
-  // Cenário não mapeado (DEVOLUCAO, DESCONHECIDO)
   if (!cenario) {
     return {
       aliquotaDestacada: 0,
@@ -239,7 +246,7 @@ export function simular(params: SimuladorParams, config: AppConfig): SimuladorRe
         ? 'Devolução — estornar CP'
         : 'Cenário não identificado',
       refTTD: '',
-      observacoes: gerarObservacoes(cenarioId, params),
+      observacoes: gerarObservacoes(cenarioId, params, derivados, undefined),
       bcIntegral: params.valorOperacao,
       ncm: params.ncm,
       isVedado,
@@ -247,19 +254,18 @@ export function simular(params: SimuladorParams, config: AppConfig): SimuladorRe
     };
   }
 
-  const aliquota = escolherAliquotaDefault(cenario, params.destUf, config);
+  const aliquota = escolherAliquotaDefault(cenario, params.destUf, config, derivados);
 
-  // Cobre/aço com alíquota 4%: carga efetiva = 0,6% ao invés da padrão do cenário
-  const cobreAco = isCobreAco(params.ncm, config.listaCobreAco);
+  const cobreAco = derivados.isCobreAco;
   const cargaEfetivaOverride = (cobreAco && Math.abs(aliquota - 4) < 0.01) ? 0.6 : undefined;
 
   const calc = calcularTTD(cenario, params.valorOperacao, aliquota, cargaEfetivaOverride);
-  const observacoes = gerarObservacoes(cenarioId, params);
+  const observacoes = gerarObservacoes(cenarioId, params, derivados, cenario);
 
-  // Add cobre/aco observation
   if (cobreAco && cargaEfetivaOverride !== undefined) {
     observacoes.push('Cobre/Aço — carga efetiva 0,6% (não ' + cenario.cargaEfetiva + '%).');
   }
+
   const icmsDestacado = Math.round(calc.bcIntegral * calc.aliquotaDestacada) / 100;
 
   return {

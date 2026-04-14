@@ -6,7 +6,10 @@ describe('validarNfe', () => {
   it('should validate clean interstate NF-e as OK', () => {
     const nfe = makeNfe({
       dest: makeDest({ uf: 'PR', indIEDest: '1' }),
-      itens: [makeItem({ ncm: '84713019', cfop: '6101', cst: '090', pICMS: 4, vBC: 1000, vICMS: 40 })],
+      itens: [makeItem({
+        ncm: '84713019', cfop: '6101', cst: '090', pICMS: 4, vBC: 1000, vICMS: 40,
+        cCredPresumido: 'CP123', pCredPresumido: 3, vCredPresumido: 30,
+      })],
     });
     const config = makeConfig();
     const result = validarNfe(nfe, config);
@@ -47,7 +50,7 @@ describe('validarNfe', () => {
     const config = makeConfig();
     const result = validarNfe(nfe, config);
 
-    expect(result.itensValidados[0]!.resultados.some(r => r.regra === 'CST02' && r.status === 'ALERTA')).toBe(true);
+    expect(result.itensValidados[0]!.resultados.some(r => r.regra === 'CST02' && r.status === 'AVISO')).toBe(true);
   });
 
   it('should accept CST with origin 1 and any trib (00, 51, 90)', () => {
@@ -67,7 +70,7 @@ describe('validarNfe', () => {
   it('should validate internal SC PF as B7', () => {
     const nfe = makeNfe({
       dest: makeDest({ uf: 'SC', cpf: '12345678901', cnpj: undefined, indIEDest: '9' }),
-      itens: [makeItem({ ncm: '84713019', cfop: '5102', cst: '000', pICMS: 17 })],
+      itens: [makeItem({ ncm: '84713019', cfop: '5102', cst: '000', pICMS: 17, vICMS: 170 })],
     });
     const config = makeConfig();
     const result = validarNfe(nfe, config);
@@ -80,7 +83,10 @@ describe('validarNfe', () => {
     const nfe = makeNfe({
       dest: makeDest({ uf: 'PR', indIEDest: '1' }),
       itens: [
-        makeItem({ nItem: '1', ncm: '84713019', cfop: '6101', cst: '090', pICMS: 4 }),
+        makeItem({
+          nItem: '1', ncm: '84713019', cfop: '6101', cst: '090', pICMS: 4,
+          cCredPresumido: 'CP123', pCredPresumido: 3, vCredPresumido: 30,
+        }),
         makeItem({ nItem: '2', ncm: '84713019', cfop: '6101', cst: '090', pICMS: 12, cCredPresumido: 'CP123' }),
       ],
     });
@@ -101,7 +107,11 @@ describe('validarNfe', () => {
     const result = validarNfe(nfe, config);
 
     expect(result.itensValidados[0]!.cenario).toBe('DESCONHECIDO');
-    expect(result.itensValidados[0]!.resultados.some(r => r.regra === 'C-UNK')).toBe(true);
+    const cunk = result.itensValidados[0]!.resultados.find(r => r.regra === 'C-UNK');
+    expect(cunk).toBeDefined();
+    // Mensagem deve incluir contexto diagnostico (CFOP + campos derivados)
+    expect(cunk!.mensagem).toContain('CFOP 5101');
+    expect(cunk!.mensagem).toContain('operacao=');
   });
 
   it('should calculate totalBC and totalFundos', () => {
@@ -128,6 +138,69 @@ describe('validarNfe', () => {
     const result = validarNfe(nfe, config);
 
     expect(result.totalFundos).toBe(0);
+  });
+
+  it('should use carga 3.6% (not 1%) when pICMS=10 diverges from cenario', () => {
+    // Cenario interno B1 (contribuinte normal em SC) espera 4% com carga 1%.
+    // Se a NF vier com pICMS=10, o recolher deve ser 3.6% da BC, NAO 1%.
+    const nfe = makeNfe({
+      dest: makeDest({ uf: 'SC', indIEDest: '1' }),
+      itens: [makeItem({ ncm: '84713019', cfop: '5101', cst: '090', pICMS: 10, vBC: 1000, vICMS: 100 })],
+    });
+    const config = makeConfig();
+    const result = validarNfe(nfe, config);
+
+    // totalICMSRecolher deve ser ~3,6% de 1000 = 36 (nao 10 = 1%)
+    expect(result.totalICMSRecolher).toBeCloseTo(36, 1);
+  });
+
+  it('should use BC integral × carga when pRedBC > 0 (regra fiscal: reducao de BC nao reduz obrigacao)', () => {
+    // Quando ha reducao de BC, o ICMS a recolher continua sendo calculado
+    // sobre a base integral × carga efetiva do cenario. A reducao de BC
+    // nao reduz a obrigacao de recolhimento sob o TTD.
+    // vProd=1000, pRedBC=47.06% → vBC=529.40, pICMS=4 → vICMS=21.18.
+    // Cenario A1 carga 1% → recolher correto = 1000 × 1% = 10.
+    const nfe = makeNfe({
+      dest: makeDest({ uf: 'PR', indIEDest: '1' }),
+      itens: [makeItem({
+        ncm: '84713019', cfop: '6101', cst: '090',
+        pICMS: 4, vBC: 529.40, pRedBC: 47.06, vProd: 1000, vICMS: 21.18,
+      })],
+    });
+    const config = makeConfig();
+    const result = validarNfe(nfe, config);
+
+    expect(result.totalICMSRecolher).toBeCloseTo(10, 1);
+  });
+
+  it('NF mista: item sem pRedBC (via CP) + item com pRedBC, ambos sobre BC integral', () => {
+    // Item 1: sem pRedBC, pICMS=4, cenario A1 carga 1% → bcInt=1000 × 1% = 10
+    // Item 2: com pRedBC=50, vBC=500, pICMS=17 → bcInt=1000, pICMS diverge
+    //         de A1 (espera 4%) → carga derivada 3.6% → recolher = 1000 × 3.6% = 36
+    // Total esperado = 10 + 36 = 46
+    const nfe = makeNfe({
+      dest: makeDest({ uf: 'PR', indIEDest: '1' }),
+      itens: [
+        makeItem({
+          nItem: '1', ncm: '84713019', cfop: '6101', cst: '090',
+          pICMS: 4, vBC: 1000, vICMS: 40,
+          cCredPresumido: 'CP123', pCredPresumido: 3, vCredPresumido: 30,
+        }),
+        makeItem({
+          nItem: '2', ncm: '84713019', cfop: '6101', cst: '120',
+          pICMS: 17, vBC: 500, pRedBC: 50, vProd: 1000, vICMS: 85,
+        }),
+      ],
+    });
+    const config = makeConfig();
+    const result = validarNfe(nfe, config);
+
+    expect(result.totalICMSRecolher).toBeCloseTo(46, 2);
+    // totalCPEsperado: ambos os itens sao considerados.
+    //   Item 1: A1 temCP=true, pICMS=4, carga=1 → cp esp = 1000 × 3% = 30
+    //   Item 2: A1 temCP=true, pICMS=17, carga derivada=3.6 → cp esp = 1000 × 13.4% = 134
+    // Total = 164
+    expect(result.totalCPEsperado).toBeCloseTo(164, 1);
   });
 
   it('should handle devolucao CFOP', () => {

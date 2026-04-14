@@ -14,7 +14,9 @@ interface HistoricoPanelProps {
 
 const statusBadge: Record<string, string> = {
   OK: 'bg-success-100 text-success-700',
-  ALERTA: 'bg-warning-100 text-warning-700',
+  INFO: 'bg-sky-100 text-sky-700',
+  AVISO: 'bg-warning-100 text-warning-700',
+  DIVERGENCIA: 'bg-orange-100 text-orange-700',
   ERRO: 'bg-danger-100 text-danger-700',
 };
 
@@ -107,11 +109,20 @@ export function HistoricoPanel({ refreshKey }: HistoricoPanelProps) {
               </div>
               <div className="flex items-center gap-2 mt-1.5 text-xs">
                 <Badge className={cn('border-transparent rounded-md text-[10px]', statusBadge.OK)}>{a.resumo.nfesOk} OK</Badge>
-                {a.resumo.nfesAlerta > 0 && (
-                  <Badge className={cn('border-transparent rounded-md text-[10px]', statusBadge.ALERTA)}>{a.resumo.nfesAlerta} Alerta</Badge>
+                {(a.resumo.nfesInfo ?? 0) > 0 && (
+                  <Badge className={cn('border-transparent rounded-md text-[10px]', statusBadge.INFO)}>{a.resumo.nfesInfo} Info</Badge>
+                )}
+                {(a.resumo.nfesAviso ?? 0) > 0 && (
+                  <Badge className={cn('border-transparent rounded-md text-[10px]', statusBadge.AVISO)}>{a.resumo.nfesAviso} Aviso</Badge>
+                )}
+                {(a.resumo.nfesDivergencia ?? 0) > 0 && (
+                  <Badge className={cn('border-transparent rounded-md text-[10px]', statusBadge.DIVERGENCIA)}>{a.resumo.nfesDivergencia} Diverg.</Badge>
                 )}
                 {a.resumo.nfesErro > 0 && (
                   <Badge className={cn('border-transparent rounded-md text-[10px]', statusBadge.ERRO)}>{a.resumo.nfesErro} Erro</Badge>
+                )}
+                {(a.resumo.nfesAlerta ?? 0) > 0 && (
+                  <Badge className={cn('border-transparent rounded-md text-[10px]', statusBadge.AVISO)}>{a.resumo.nfesAlerta} Alerta (legado)</Badge>
                 )}
                 <span className="w-px h-3 bg-border" />
                 <span className="text-muted-foreground font-mono tabular-nums">BC: {formatCurrency(a.resumo.totalBC)}</span>

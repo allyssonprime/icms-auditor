@@ -1,49 +1,53 @@
 @import "tailwindcss";
 @import "@fontsource-variable/dm-sans";
+@import "@fontsource-variable/manrope";
 
 /* ===================================================================
-   Design System — Visual Solution Style Guide (v2)
+   Design System — Lumen Ledger / "The Sovereign Analyst"
    Primary: #5A81FA | Dark: #2B318A | Accent: #FBB03B
-   Font: DM Sans (geometric sans-serif, matching "Cygre")
+   Headlines: Manrope | Body: DM Sans | Labels: Inter
    =================================================================== */
 
 :root {
   /* === BASE === */
-  --background: #F7F8FC;
-  --foreground: #1F1F1F;
+  --background: #faf8ff;
+  --foreground: #131b2e;
 
   /* === CARD === */
-  --card: #FFFFFF;
-  --card-foreground: #1F1F1F;
+  --card: #ffffff;
+  --card-foreground: #131b2e;
 
   /* === POPOVER / DROPDOWN / TOOLTIP === */
-  --popover: #FFFFFF;
-  --popover-foreground: #1F1F1F;
+  --popover: #ffffff;
+  --popover-foreground: #131b2e;
 
   /* === PRIMARY (brand blue #5A81FA) === */
-  --primary: #5A81FA;
-  --primary-foreground: #FFFFFF;
+  --primary: #2452ca;
+  --primary-foreground: #ffffff;
+  --primary-container: #446ce4;
 
   /* === SECONDARY === */
-  --secondary: #F2F5FF;
-  --secondary-foreground: #2B318A;
+  --secondary: #4f55af;
+  --secondary-foreground: #ffffff;
+  --secondary-container: #9aa0ff;
 
   /* === MUTED === */
-  --muted: #F2F5FF;
-  --muted-foreground: #6A6E83;
+  --muted: #f2f3ff;
+  --muted-foreground: #434654;
 
   /* === ACCENT === */
-  --accent: #F2F5FF;
-  --accent-foreground: #2B318A;
+  --accent: #f2f3ff;
+  --accent-foreground: #2c328b;
 
   /* === DESTRUCTIVE === */
-  --destructive: #E5484D;
-  --destructive-foreground: #FFFFFF;
+  --destructive: #ba1a1a;
+  --destructive-foreground: #ffffff;
 
-  /* === BORDERS & INPUTS === */
-  --border: #E4E7F0;
-  --input: #D8DCE8;
+  /* === BORDERS & INPUTS (Ghost Border System) === */
+  --border: rgba(196, 197, 214, 0.15);
+  --input: rgba(196, 197, 214, 0.15);
   --ring: #5A81FA;
+  --outline-variant: #c4c5d6;
 
   /* === BORDER RADIUS === */
   --radius: 0.625rem;
@@ -56,58 +60,76 @@
   --chart-5: #6A6E83;
 
   /* === SIDEBAR === */
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #1F1F1F;
+  --sidebar: #0F172A;
+  --sidebar-foreground: #ffffff;
   --sidebar-primary: #5A81FA;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F2F5FF;
-  --sidebar-accent-foreground: #2B318A;
-  --sidebar-border: #E4E7F0;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1E293B;
+  --sidebar-accent-foreground: #F8FAFC;
+  --sidebar-border: #1E293B;
   --sidebar-ring: #5A81FA;
 
   /* === CUSTOM SEMANTIC COLORS === */
   --success: #30A46C;
-  --success-foreground: #FFFFFF;
+  --success-foreground: #ffffff;
   --warning: #FBB03B;
-  --warning-foreground: #1F1F1F;
+  --warning-foreground: #131b2e;
   --info: #5A81FA;
-  --info-foreground: #FFFFFF;
+  --info-foreground: #ffffff;
+
+  /* === SURFACE HIERARCHY (Tonal Layering) === */
+  --surface-lowest: #ffffff;
+  --surface: #faf8ff;
+  --surface-low: #f2f3ff;
+  --surface-container: #eaedff;
+  --surface-high: #e2e7ff;
+  --surface-highest: #dae2fd;
+  --surface-dim: #d2d9f4;
+  --surface-tint: #2755cc;
 
   /* === EXTENDED PRIMARY SCALE === */
   --primary-50: #EEF2FE;
-  --primary-100: #D9E2FD;
-  --primary-200: #B8C9FB;
+  --primary-100: #dce1ff;
+  --primary-200: #b5c4ff;
   --primary-300: #8DA8F9;
   --primary-400: #5A81FA;
-  --primary-500: #3A65E8;
+  --primary-500: #2452ca;
   --primary-600: #2B4FD4;
   --primary-700: #2240B5;
   --primary-800: #1E3694;
-  --primary-900: #1A2D75;
+  --primary-900: #00164e;
 
   /* === EXTENDED NEUTRAL SCALE === */
-  --neutral-50: #F7F8FC;
-  --neutral-100: #F2F5FF;
-  --neutral-200: #E4E7F0;
-  --neutral-300: #D0D4E0;
-  --neutral-400: #A8B1CE;
-  --neutral-500: #6A6E83;
-  --neutral-600: #4A4E63;
-  --neutral-700: #353948;
-  --neutral-800: #2B318A;
-  --neutral-900: #1F1F1F;
+  --neutral-50: #faf8ff;
+  --neutral-100: #f2f3ff;
+  --neutral-200: #eaedff;
+  --neutral-300: #dae2fd;
+  --neutral-400: #c4c5d6;
+  --neutral-500: #747685;
+  --neutral-600: #434654;
+  --neutral-700: #283044;
+  --neutral-800: #131b2e;
+  --neutral-900: #0F172A;
 
   /* === DARK PRIMARY === */
   --primary-dark: #2B318A;
 
-  /* === SHADOWS === */
-  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.03);
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.04);
-  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
-  --shadow-card-hover: 0 4px 6px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.04);
+  /* === TERTIARY (Accent Gold) === */
+  --tertiary: #7f5300;
+  --tertiary-container: #a06900;
+  --tertiary-foreground: #ffffff;
+
+  /* === GRADIENT === */
+  --gradient-cta: linear-gradient(145deg, #2452ca, #446ce4);
+
+  /* === AMBIENT SHADOWS (Tinted, never pure black) === */
+  --shadow-xs: 0 1px 2px 0 rgba(19, 27, 46, 0.03);
+  --shadow-sm: 0 1px 3px 0 rgba(19, 27, 46, 0.05), 0 1px 2px -1px rgba(19, 27, 46, 0.04);
+  --shadow-md: 0 4px 8px -2px rgba(19, 27, 46, 0.06), 0 2px 4px -2px rgba(19, 27, 46, 0.04);
+  --shadow-lg: 0 10px 25px -3px rgba(19, 27, 46, 0.06), 0 4px 6px -4px rgba(19, 27, 46, 0.03);
+  --shadow-xl: 0 20px 35px -5px rgba(19, 27, 46, 0.08), 0 8px 10px -6px rgba(19, 27, 46, 0.04);
+  --shadow-card: 0 12px 32px -4px rgba(19, 27, 46, 0.08);
+  --shadow-card-hover: 0 16px 40px -4px rgba(19, 27, 46, 0.12);
 }
 
 .dark {
@@ -249,11 +271,16 @@
   --color-danger-700: #b91c1c;
   --color-danger-800: #991b1b;
 
-  /* Surface colors */
-  --color-surface-0: #ffffff;
-  --color-surface-50: #F7F8FC;
-  --color-surface-100: #F2F5FF;
-  --color-surface-200: #E4E7F0;
+  /* Surface hierarchy (Tonal Layering) */
+  --color-surface-lowest: var(--surface-lowest);
+  --color-surface: var(--surface);
+  --color-surface-low: var(--surface-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-high: var(--surface-high);
+  --color-surface-highest: var(--surface-highest);
+
+  /* Gradient */
+  --color-primary-container: var(--primary-container);
 
   /* Shadows */
   --shadow-xs: var(--shadow-xs);
@@ -270,8 +297,9 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
 
-  /* Font */
+  /* Fonts — Dual Strategy: Manrope (headlines) + DM Sans (body) */
   --font-sans: "DM Sans Variable", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: "Manrope Variable", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 html {
@@ -283,6 +311,19 @@ html {
 body {
   background-color: var(--background);
   color: var(--foreground);
+}
+
+/* Typography — Headline system (Manrope) */
+h1, h2, h3, h4, h5, h6,
+.font-heading {
+  font-family: var(--font-heading);
+  letter-spacing: -0.04em;
+}
+
+/* Tabular nums for financial data */
+.tabular-nums,
+[data-financial] {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Focus styles */

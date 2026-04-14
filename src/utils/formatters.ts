@@ -32,3 +32,12 @@ export function parseNumberBR(text: string): number {
   const cleaned = text.replace(/\./g, '').replace(',', '.');
   return parseFloat(cleaned) || 0;
 }
+
+/**
+ * Reverte a reducao de BC para obter a base integral.
+ * Quando pRedBC <= 0 (BC normal), retorna vBC sem alteracao.
+ */
+export function bcIntegral(vBC: number, pRedBC: number): number {
+  if (pRedBC <= 0 || pRedBC >= 100) return vBC;
+  return vBC / (1 - pRedBC / 100);
+}

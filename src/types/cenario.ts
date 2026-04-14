@@ -9,4 +9,6 @@ export interface CenarioConfig {
   temCP: boolean;
   temDiferimentoParcial: boolean;
   refTTD: string;
+  /** true se o cenário exige produto sem similar nacional (CAMEX) */
+  isCAMEX?: boolean;
 }

@@ -38,6 +38,7 @@ export interface CnpjOverridesFirestore {
   vedacao25a: string[];
   vedacao25b: string[];
   listaCD: string[];
+  listaCamex210: string[];
 }
 
 const CNPJ_OVERRIDES_DOC = 'cnpjOverrides';
@@ -185,6 +186,7 @@ export async function loadFullAppConfig(defaults: import('../types/config.ts').A
     if (overrides.vedacao25a.length > 0) config.listaVedacao25a = overrides.vedacao25a;
     if (overrides.vedacao25b.length > 0) config.listaVedacao25b = overrides.vedacao25b;
     if (overrides.listaCD.length > 0) config.listaCD = overrides.listaCD;
+    if (overrides.listaCamex210?.length > 0) config.listaCamex210 = overrides.listaCamex210;
   }
 
   // Derive listaSN and listaIndustriais from empresas

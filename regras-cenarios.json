@@ -1,0 +1,484 @@
+[
+    {
+        "id": "A1",
+        "nome": "Interestadual — Contribuinte (Normal ou SN) — Sem CAMEX",
+        "aliquotasAceitas": [
+            4
+        ],
+        "cargaEfetiva": 1.0,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "90"
+        ],
+        "cfopsEsperados": [
+            "6101",
+            "6102",
+            "6106",
+            "6107"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": false,
+        "refTTD": "1.2.a.2"
+    },
+    {
+        "id": "A2",
+        "nome": "Interestadual — Contribuinte — CAMEX",
+        "aliquotasAceitas": [
+            12,
+            7
+        ],
+        "cargaEfetiva": 3.6,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "90"
+        ],
+        "cfopsEsperados": [
+            "6101",
+            "6102",
+            "6106",
+            "6107"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": false,
+        "refTTD": "1.2.b.2"
+    },
+    {
+        "id": "A4",
+        "nome": "Interestadual — PJ Não Contribuinte — Sem CAMEX",
+        "aliquotasAceitas": [
+            4
+        ],
+        "cargaEfetiva": 1.0,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "90"
+        ],
+        "cfopsEsperados": [
+            "6101",
+            "6102",
+            "6107",
+            "6108"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": false,
+        "refTTD": "1.2.a + 1.25"
+    },
+    {
+        "id": "A5",
+        "nome": "Interestadual — PJ Não Contribuinte — CAMEX",
+        "aliquotasAceitas": [
+            12,
+            7
+        ],
+        "cargaEfetiva": 3.6,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "90"
+        ],
+        "cfopsEsperados": [
+            "6101",
+            "6102",
+            "6107",
+            "6108"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": false,
+        "refTTD": "1.2.b.3"
+    },
+    {
+        "id": "A6",
+        "nome": "Interestadual — Pessoa Física outra UF — Sem CAMEX",
+        "aliquotasAceitas": [
+            4
+        ],
+        "cargaEfetiva": 1.0,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "90"
+        ],
+        "cfopsEsperados": [
+            "6101",
+            "6102",
+            "6107",
+            "6108"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": false,
+        "refTTD": "1.2.a + 1.25"
+    },
+    {
+        "id": "A7",
+        "nome": "Interestadual — Pessoa Física outra UF — CAMEX",
+        "aliquotasAceitas": [
+            12,
+            7
+        ],
+        "cargaEfetiva": 3.6,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "90"
+        ],
+        "cfopsEsperados": [
+            "6101",
+            "6102",
+            "6107",
+            "6108"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": false,
+        "refTTD": "1.2.b.3"
+    },
+    {
+        "id": "A8",
+        "nome": "Interestadual — Cobre/Aço — Contribuinte",
+        "aliquotasAceitas": [
+            4
+        ],
+        "cargaEfetiva": 0.6,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "90"
+        ],
+        "cfopsEsperados": [
+            "6101",
+            "6102",
+            "6106",
+            "6107"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": false,
+        "refTTD": "1.2.a.1"
+    },
+    {
+        "id": "A9",
+        "nome": "Transferência interestadual (filial)",
+        "aliquotasAceitas": [
+            4,
+            12,
+            7
+        ],
+        "cargaEfetiva": 1.0,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "90"
+        ],
+        "cfopsEsperados": [
+            "6152",
+            "6155"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": false,
+        "refTTD": "1.6"
+    },
+    {
+        "id": "B1",
+        "nome": "Interna — Contribuinte Normal — Sem CAMEX",
+        "aliquotasAceitas": [
+            4
+        ],
+        "cargaEfetiva": 1.0,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "51"
+        ],
+        "cfopsEsperados": [
+            "5101",
+            "5102",
+            "5106",
+            "5107"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": true,
+        "refTTD": "1.2.a + 1.13.c"
+    },
+    {
+        "id": "B2",
+        "nome": "Interna — Contribuinte Normal — CAMEX (padrão)",
+        "aliquotasAceitas": [
+            12
+        ],
+        "cargaEfetiva": 3.6,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "51"
+        ],
+        "cfopsEsperados": [
+            "5101",
+            "5102",
+            "5106",
+            "5107"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": true,
+        "refTTD": "1.2.b.2 + 1.13.a"
+    },
+    {
+        "id": "B3",
+        "nome": "Interna — Industrial (MP c/ mudança NCM) — Opção",
+        "aliquotasAceitas": [
+            10,
+            4
+        ],
+        "cargaEfetiva": 3.6,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "51"
+        ],
+        "cfopsEsperados": [
+            "5101",
+            "5102",
+            "5106",
+            "5107"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": true,
+        "refTTD": "1.2.e + 1.13.b"
+    },
+    {
+        "id": "B4",
+        "nome": "Interna — Simples Nacional + COM ST",
+        "aliquotasAceitas": [
+            4
+        ],
+        "cargaEfetiva": 1.0,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "10",
+            "70"
+        ],
+        "cfopsEsperados": [
+            "5101",
+            "5102",
+            "5106",
+            "5107"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": false,
+        "refTTD": "1.2.a + 1.14.a"
+    },
+    {
+        "id": "B4-CAMEX",
+        "nome": "Interna — SN + COM ST + CAMEX",
+        "aliquotasAceitas": [
+            12
+        ],
+        "cargaEfetiva": 3.6,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "10",
+            "70"
+        ],
+        "cfopsEsperados": [
+            "5101",
+            "5102",
+            "5106",
+            "5107"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": false,
+        "refTTD": "1.2.b.2"
+    },
+    {
+        "id": "B5",
+        "nome": "Interna — Simples Nacional + SEM ST",
+        "aliquotasAceitas": [
+            7,
+            8.8,
+            12,
+            17,
+            25
+        ],
+        "cargaEfetiva": 3.6,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "00"
+        ],
+        "cfopsEsperados": [
+            "5101",
+            "5102",
+            "5106",
+            "5107"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": false,
+        "refTTD": "1.2.b.1 + 1.14.a"
+    },
+    {
+        "id": "B5-CAMEX",
+        "nome": "Interna — SN + SEM ST + CAMEX",
+        "aliquotasAceitas": [
+            7,
+            8.8,
+            12,
+            17,
+            25
+        ],
+        "cargaEfetiva": 3.6,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "00"
+        ],
+        "cfopsEsperados": [
+            "5101",
+            "5102",
+            "5106",
+            "5107"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": false,
+        "refTTD": "1.2.b.1"
+    },
+    {
+        "id": "B6",
+        "nome": "Interna — PJ Não Contribuinte",
+        "aliquotasAceitas": [
+            7,
+            8.8,
+            12,
+            17,
+            25
+        ],
+        "cargaEfetiva": 3.6,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "00"
+        ],
+        "cfopsEsperados": [
+            "5101",
+            "5102",
+            "5106",
+            "5107"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": false,
+        "refTTD": "1.2.b.1 + 1.14.b"
+    },
+    {
+        "id": "B6-CAMEX",
+        "nome": "Interna — PJ Não Contribuinte + CAMEX",
+        "aliquotasAceitas": [
+            7,
+            8.8,
+            12,
+            17,
+            25
+        ],
+        "cargaEfetiva": 3.6,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "00"
+        ],
+        "cfopsEsperados": [
+            "5101",
+            "5102",
+            "5106",
+            "5107"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": false,
+        "refTTD": "1.2.b.1"
+    },
+    {
+        "id": "B7",
+        "nome": "Interna — Pessoa Física (consumidor final)",
+        "aliquotasAceitas": [
+            7,
+            8.8,
+            12,
+            17,
+            25
+        ],
+        "cargaEfetiva": 0,
+        "fundos": 0,
+        "cstEsperado": [
+            "00"
+        ],
+        "cfopsEsperados": [
+            "5101",
+            "5102",
+            "5106",
+            "5107"
+        ],
+        "temCP": false,
+        "temDiferimentoParcial": false,
+        "refTTD": "2.1.c.3 + 1.14.b"
+    },
+    {
+        "id": "B9",
+        "nome": "Interna — Dest. com TTD/diferimento (Pró-Emprego)",
+        "aliquotasAceitas": [],
+        "cargaEfetiva": 0,
+        "fundos": 0,
+        "cstEsperado": [
+            "51"
+        ],
+        "cfopsEsperados": [
+            "5101",
+            "5102",
+            "5106",
+            "5107"
+        ],
+        "temCP": false,
+        "temDiferimentoParcial": true,
+        "refTTD": "1.14.d + 2.5.a"
+    },
+    {
+        "id": "B10",
+        "nome": "Interna — Dest. têxtil/confecções (art.15 XXXIX)",
+        "aliquotasAceitas": [
+            10
+        ],
+        "cargaEfetiva": 3.6,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "51"
+        ],
+        "cfopsEsperados": [
+            "5101",
+            "5102",
+            "5106",
+            "5107"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": true,
+        "refTTD": "2.5.b"
+    },
+    {
+        "id": "B11",
+        "nome": "Interna — CD Exclusivo (Booster)",
+        "aliquotasAceitas": [
+            10
+        ],
+        "cargaEfetiva": 1.0,
+        "fundos": 0.4,
+        "cstEsperado": [
+            "51"
+        ],
+        "cfopsEsperados": [
+            "5101",
+            "5102",
+            "5106",
+            "5107"
+        ],
+        "temCP": true,
+        "temDiferimentoParcial": true,
+        "refTTD": "1.26"
+    },
+    {
+        "id": "B12",
+        "nome": "Transferência interna (filial SC)",
+        "aliquotasAceitas": [],
+        "cargaEfetiva": 0,
+        "fundos": 0,
+        "cstEsperado": [
+            "51"
+        ],
+        "cfopsEsperados": [
+            "5152",
+            "5155"
+        ],
+        "temCP": false,
+        "temDiferimentoParcial": false,
+        "refTTD": "2.1.c.2"
+    }
+]

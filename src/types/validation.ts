@@ -1,12 +1,23 @@
 import type { ItemData, NfeData } from './nfe.ts';
 
-export type StatusType = 'OK' | 'ALERTA' | 'ERRO';
+export type StatusType = 'OK' | 'INFO' | 'AVISO' | 'DIVERGENCIA' | 'ERRO';
+
+export type AcaoTipo = 'verificar_documento' | 'corrigir_nfe' | 'verificar_cadastro' | 'nenhuma';
+
+export interface AcaoRecomendada {
+  tipo: AcaoTipo;
+  campo?: string;
+  valorAtual?: string;
+  valorEsperado?: string;
+  prioridade: 'alta' | 'media' | 'baixa';
+}
 
 export interface ValidationResult {
   status: StatusType;
   mensagem: string;
   regra: string;
   cenario?: string;
+  acao?: AcaoRecomendada;
 }
 
 export type CrossCheckSeverity = 'ok' | 'atencao' | 'divergente';
@@ -18,12 +29,16 @@ export interface CrossCheck {
   regra: string;
 }
 
+export type ConfiancaType = 'alta' | 'media' | 'baixa';
+
 export interface ItemValidation {
   item: ItemData;
   cenario: string;
   resultados: ValidationResult[];
   crossChecks: CrossCheck[];
   statusFinal: StatusType;
+  confianca: ConfiancaType;
+  bcConsistente: boolean;
 }
 
 export interface NfeValidation {
@@ -35,6 +50,8 @@ export interface NfeValidation {
   totalICMSRecolher: number;
   totalFundos: number;
   totalRecolherComFundos: number;
+  totalCPDeclarado: number;
+  totalCPEsperado: number;
 }
 
 export interface CnpjInfo {
@@ -58,6 +75,7 @@ export type ActiveFilters = {
   vedado: Set<string>;
   creditoPresumido: Set<string>;
   tipoOperacao: Set<string>;
+  confianca: Set<string>;
   searchText: string;
 };
 

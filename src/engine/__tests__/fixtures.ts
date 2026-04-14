@@ -19,6 +19,10 @@ export function makeItem(overrides: Partial<ItemData> = {}): ItemData {
     pRedBC: 0,
     vBCST: 0,
     vICMSST: 0,
+    vFrete: 0,
+    vSeg: 0,
+    vDesc: 0,
+    vOutro: 0,
     cCredPresumido: '',
     pCredPresumido: 0,
     vCredPresumido: 0,
@@ -44,6 +48,7 @@ export function makeNfe(overrides: Partial<NfeData> = {}): NfeData {
     serie: '1',
     natOp: 'Venda de mercadoria',
     tpNF: '1',
+    dhEmi: '',
     emitCnpj: '00000000000100',
     emitNome: 'Emitente Teste Ltda',
     emitUF: 'SC',
@@ -51,6 +56,12 @@ export function makeNfe(overrides: Partial<NfeData> = {}): NfeData {
     itens: [makeItem()],
     infCpl: '',
     fileName: 'test.xml',
+    totais: {
+      vBC: 0, vICMS: 0, vBCST: 0, vST: 0, vProd: 0,
+      vFrete: 0, vSeg: 0, vDesc: 0, vOutro: 0, vNF: 0,
+    },
+    refNFe: [],
+    finNFe: '1',
     ...overrides,
   };
 }
@@ -65,6 +76,7 @@ export function makeConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     listaCD: [],
     listaVedacao25a: [],
     listaVedacao25b: [],
+    listaCamex210: [],
     ufAliquotas: {},
     aliquotasInternasValidas: ALIQUOTAS_INTERNAS_VALIDAS,
     ...overrides,
@@ -84,6 +96,11 @@ export function makeSampleXml(opts: {
   destCPF?: string;
   indIEDest?: string;
   numero?: string;
+  vFrete?: number;
+  vSeg?: number;
+  vDesc?: number;
+  vOutro?: number;
+  withTotais?: boolean;
 } = {}): string {
   const {
     ncm = '84713019',
@@ -98,7 +115,29 @@ export function makeSampleXml(opts: {
     destCPF,
     indIEDest = '1',
     numero = '123456',
+    vFrete = 0,
+    vSeg = 0,
+    vDesc = 0,
+    vOutro = 0,
+    withTotais = false,
   } = opts;
+
+  const totaisBlock = withTotais
+    ? `<total>
+        <ICMSTot>
+          <vBC>${vBC}</vBC>
+          <vICMS>${vICMS}</vICMS>
+          <vBCST>0</vBCST>
+          <vST>0</vST>
+          <vProd>${vBC}</vProd>
+          <vFrete>${vFrete}</vFrete>
+          <vSeg>${vSeg}</vSeg>
+          <vDesc>${vDesc}</vDesc>
+          <vOutro>${vOutro}</vOutro>
+          <vNF>${vBC + vFrete + vSeg + vOutro - vDesc}</vNF>
+        </ICMSTot>
+      </total>`
+    : '';
 
   const destId = destCPF
     ? `<CPF>${destCPF}</CPF>`
@@ -136,6 +175,10 @@ export function makeSampleXml(opts: {
           <NCM>${ncm}</NCM>
           <CFOP>${cfop}</CFOP>
           <vProd>${vBC}</vProd>
+          <vFrete>${vFrete}</vFrete>
+          <vSeg>${vSeg}</vSeg>
+          <vDesc>${vDesc}</vDesc>
+          <vOutro>${vOutro}</vOutro>
         </prod>
         <imposto>
           <ICMS>
@@ -149,6 +192,7 @@ export function makeSampleXml(opts: {
           </ICMS>
         </imposto>
       </det>
+      ${totaisBlock}
       <infAdic>
         <infCpl>Informacoes complementares teste</infCpl>
       </infAdic>

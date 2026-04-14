@@ -94,6 +94,72 @@ describe('parseNfe', () => {
     expect(result.success).toBe(true);
   });
 
+  it('should extract vFrete, vSeg, vDesc, vOutro from prod', () => {
+    const xml = makeSampleXml({ vFrete: 50, vSeg: 10, vDesc: 20, vOutro: 5 });
+    const result = parseNfe(xml);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const item = result.data.itens[0]!;
+    expect(item.vFrete).toBe(50);
+    expect(item.vSeg).toBe(10);
+    expect(item.vDesc).toBe(20);
+    expect(item.vOutro).toBe(5);
+  });
+
+  it('should default vFrete/vSeg/vDesc/vOutro to 0 when absent', () => {
+    const xml = makeSampleXml();
+    const result = parseNfe(xml);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const item = result.data.itens[0]!;
+    expect(item.vFrete).toBe(0);
+    expect(item.vSeg).toBe(0);
+    expect(item.vDesc).toBe(0);
+    expect(item.vOutro).toBe(0);
+  });
+
+  it('should parse ICMSTot totals when present', () => {
+    const xml = makeSampleXml({
+      withTotais: true,
+      vBC: 1000,
+      vICMS: 40,
+      vFrete: 50,
+      vSeg: 10,
+      vDesc: 20,
+      vOutro: 5,
+    });
+    const result = parseNfe(xml);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    expect(result.data.totais.vBC).toBe(1000);
+    expect(result.data.totais.vICMS).toBe(40);
+    expect(result.data.totais.vProd).toBe(1000);
+    expect(result.data.totais.vFrete).toBe(50);
+    expect(result.data.totais.vSeg).toBe(10);
+    expect(result.data.totais.vDesc).toBe(20);
+    expect(result.data.totais.vOutro).toBe(5);
+    expect(result.data.totais.vNF).toBe(1045); // 1000 + 50 + 10 + 5 - 20
+  });
+
+  it('should default totais to zeros when ICMSTot is absent', () => {
+    const xml = makeSampleXml();
+    const result = parseNfe(xml);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    expect(result.data.totais.vBC).toBe(0);
+    expect(result.data.totais.vICMS).toBe(0);
+    expect(result.data.totais.vProd).toBe(0);
+    expect(result.data.totais.vNF).toBe(0);
+  });
+
   it('should default numeric fields to 0 when missing', () => {
     const xml = `<?xml version="1.0"?>
     <nfeProc>

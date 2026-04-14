@@ -50,32 +50,43 @@ describe('verificarVedacoes', () => {
 describe('V01-EXC: Decreto 2.128 exceção operação interna SC×SC', () => {
   const config = makeConfig();
 
-  it('NCM proibida + SC×SC + 12% + sem CP → ALERTA (V01-EXC)', () => {
+  it('NCM proibida + SC×SC + 12% + sem CP (apuração mensal) → AVISO (V01-EXC)', () => {
     const item = makeItem({ ncm: '22071000', pICMS: 12, cCredPresumido: '' });
     const nfe = makeNfe({ emitUF: 'SC', dest: makeDest({ uf: 'SC' }) });
     const results = verificarVedacoes(item, nfe, config);
     expect(results).toHaveLength(1);
     expect(results[0]!.regra).toBe('V01-EXC');
-    expect(results[0]!.status).toBe('ALERTA');
+    expect(results[0]!.status).toBe('AVISO');
   });
 
-  it('NCM proibida + SC×SC + 17% + sem CP → ALERTA (V01-EXC)', () => {
+  it('NCM proibida + SC×SC + 17% + sem CP → AVISO (V01-EXC)', () => {
     const item = makeItem({ ncm: '22071000', pICMS: 17, cCredPresumido: '' });
     const nfe = makeNfe({ emitUF: 'SC', dest: makeDest({ uf: 'SC' }) });
     const results = verificarVedacoes(item, nfe, config);
     expect(results[0]!.regra).toBe('V01-EXC');
-    expect(results[0]!.status).toBe('ALERTA');
+    expect(results[0]!.status).toBe('AVISO');
   });
 
-  it('NCM proibida + SC×SC + 12% + com CP → ERRO (V01, uso indevido do TTD)', () => {
+  it('NCM proibida + SC×SC + 10% + sem CP → AVISO (V01-EXC, patamar inclui 10%)', () => {
+    const item = makeItem({ ncm: '22071000', pICMS: 10, cCredPresumido: '' });
+    const nfe = makeNfe({ emitUF: 'SC', dest: makeDest({ uf: 'SC' }) });
+    const results = verificarVedacoes(item, nfe, config);
+    expect(results[0]!.regra).toBe('V01-EXC');
+    expect(results[0]!.status).toBe('AVISO');
+  });
+
+  it('NCM proibida + SC×SC + 12% + com CP declarado → AVISO (V01-EXC, autorização específica presumida)', () => {
+    // Refletindo apuração real: empresas com autorização específica no TTD para
+    // NCMs do Decreto 2.128 (ex: vidros 70071900 na Prime) declaram CP no XML.
+    // Sistema não consegue validar a autorização — emite AVISO para conferência.
     const item = makeItem({ ncm: '22071000', pICMS: 12, cCredPresumido: 'CP123' });
     const nfe = makeNfe({ emitUF: 'SC', dest: makeDest({ uf: 'SC' }) });
     const results = verificarVedacoes(item, nfe, config);
-    expect(results[0]!.regra).toBe('V01');
-    expect(results[0]!.status).toBe('ERRO');
+    expect(results[0]!.regra).toBe('V01-EXC');
+    expect(results[0]!.status).toBe('AVISO');
   });
 
-  it('NCM proibida + SC×PR (interestadual) → ERRO (V01)', () => {
+  it('NCM proibida + SC×PR (interestadual) → ERRO (V01, exceção não aplica fora de SC)', () => {
     const item = makeItem({ ncm: '22071000', pICMS: 12, cCredPresumido: '' });
     const nfe = makeNfe({ emitUF: 'SC', dest: makeDest({ uf: 'PR' }) });
     const results = verificarVedacoes(item, nfe, config);
@@ -83,11 +94,21 @@ describe('V01-EXC: Decreto 2.128 exceção operação interna SC×SC', () => {
     expect(results[0]!.status).toBe('ERRO');
   });
 
-  it('NCM proibida + SC×SC + 4% + sem CP → ERRO (V01, alíquota baixa)', () => {
+  it('NCM proibida + SC×SC + 4% + sem CP → ERRO (V01, alíquota abaixo do patamar 10%)', () => {
+    // Alíquota 4% + NCM vedado é inconsistente: se usa TTD (4%), o NCM não deveria ser vedado.
     const item = makeItem({ ncm: '22071000', pICMS: 4, cCredPresumido: '' });
     const nfe = makeNfe({ emitUF: 'SC', dest: makeDest({ uf: 'SC' }) });
     const results = verificarVedacoes(item, nfe, config);
     expect(results[0]!.regra).toBe('V01');
     expect(results[0]!.status).toBe('ERRO');
+  });
+
+  it('NCM 70071900 (vidros temperados) + SC×SC + 12% + sem CP → AVISO V01-EXC (caso Prime)', () => {
+    // Caso concreto da apuração Prime 03/2026: série 2 com vidros temperados
+    const item = makeItem({ ncm: '70071900', pICMS: 12, cCredPresumido: '' });
+    const nfe = makeNfe({ emitUF: 'SC', dest: makeDest({ uf: 'SC' }) });
+    const results = verificarVedacoes(item, nfe, config);
+    expect(results[0]!.regra).toBe('V01-EXC');
+    expect(results[0]!.status).toBe('AVISO');
   });
 });

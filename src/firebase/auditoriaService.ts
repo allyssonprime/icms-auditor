@@ -56,7 +56,10 @@ export async function salvarAuditoria(
 ): Promise<string> {
   const resumo: AuditoriaResumo = {
     nfesOk: results.filter(r => r.statusFinal === 'OK').length,
-    nfesAlerta: results.filter(r => r.statusFinal === 'ALERTA').length,
+    nfesAlerta: 0,
+    nfesInfo: results.filter(r => r.statusFinal === 'INFO').length,
+    nfesAviso: results.filter(r => r.statusFinal === 'AVISO').length,
+    nfesDivergencia: results.filter(r => r.statusFinal === 'DIVERGENCIA').length,
     nfesErro: results.filter(r => r.statusFinal === 'ERRO').length,
     totalBC: results.reduce((s, r) => s + r.totalBC, 0),
     totalICMSDestacado: results.reduce((s, r) => s + r.totalICMSDestacado, 0),

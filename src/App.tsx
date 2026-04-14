@@ -1,31 +1,43 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+
 import type { NfeValidation, ActiveFilters, StatusType, CnpjInfo } from './types/validation.ts';
 import type { AppConfig } from './types/config.ts';
 import { parseNfe } from './engine/parser.ts';
 import { validarNfe } from './engine/validator.ts';
+import { detectarCanceladas, filtrarNfes } from './engine/nfeFilters.ts';
+import { parseEfd } from './engine/efdParser.ts';
+import { crossValidate } from './engine/crossValidator.ts';
+import type { EfdData } from './types/efd.ts';
+import type { CrossValidationResult } from './types/crossValidation.ts';
 import { DECRETO_2128 } from './data/decreto2128.ts';
 import { COBRE_ACO_PREFIXES } from './data/cobreAco.ts';
 import { ALIQUOTAS_INTERNAS_VALIDAS } from './data/aliquotasInternas.ts';
 import { DropZone } from './components/DropZone.tsx';
 import { Dashboard } from './components/Dashboard.tsx';
-import { ExportButton } from './components/ExportButton.tsx';
+
 import { GroupingPanel } from './components/GroupingPanel.tsx';
 import { NfeListView } from './components/NfeListView.tsx';
 import { CnpjLookupPanel } from './components/CnpjLookupPanel.tsx';
 import { CenarioLegend } from './components/CenarioLegend.tsx';
+import { AuditWorkspace } from './components/audit/AuditWorkspace.tsx';
 import { CadastrosPage } from './components/CadastrosPage.tsx';
 import { SimuladorPage } from './components/SimuladorPage.tsx';
+import { RegrasPage } from './components/RegrasPage.tsx';
 import { HistoricoPanel } from './components/HistoricoPanel.tsx';
+import { ReconciliacaoPanel } from './components/ReconciliacaoPanel.tsx';
+import { ApuracaoTTDPage } from './components/ApuracaoTTDPage.tsx';
+import { CrossValidationPanel } from './components/CrossValidationPanel.tsx';
 import { loadFullAppConfig, type EmpresaCadastro } from './firebase/configService.ts';
 import { salvarAuditoria } from './firebase/auditoriaService.ts';
+import { getDefaultRegras } from './data/defaultRegras.ts';
+import { getRegrasFromFirestore } from './firebase/regrasService.ts';
+import type { RegrasConfig } from './types/regras.ts';
 import { commitHash } from 'virtual:git-hash';
-import { ShieldCheck, Calculator, Settings, RefreshCw, Trash2, LogOut } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/auth/AuthContext';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Sidebar } from './components/layout/Sidebar.tsx';
+import { TopBar } from './components/layout/TopBar.tsx';
 
-const ALLOWED_CFOPS = new Set(['5949', '5102', '6102']);
+const ALLOWED_CFOPS = new Set(['5949', '6949', '5102', '6102']);
 
 function getDefaultConfig(): AppConfig {
   return {
@@ -37,6 +49,7 @@ function getDefaultConfig(): AppConfig {
     listaCD: [],
     listaVedacao25a: [],
     listaVedacao25b: [],
+    listaCamex210: [],
     ufAliquotas: {},
     aliquotasInternasValidas: ALIQUOTAS_INTERNAS_VALIDAS,
   };
@@ -52,6 +65,7 @@ function emptyFilters(): ActiveFilters {
     vedado: new Set<string>(),
     creditoPresumido: new Set<string>(),
     tipoOperacao: new Set<string>(),
+    confianca: new Set<string>(),
     searchText: '',
   };
 }
@@ -73,14 +87,16 @@ interface ParseError {
   error: string;
 }
 
-type ActiveView = 'auditor' | 'cadastros' | 'simulador';
+export type ActiveView = 'auditor' | 'cadastros' | 'simulador' | 'regras' | 'reconciliacao' | 'apuracao_ttd' | 'cross_validation';
 
 export default function App() {
-  const { logout } = useAuth();
   const [config, setConfig] = useState<AppConfig>(getDefaultConfig);
+  const [regras, setRegras] = useState<RegrasConfig>(getDefaultRegras);
   const [empresas, setEmpresas] = useState<EmpresaCadastro[]>([]);
   const [configLoading, setConfigLoading] = useState(true);
   const [results, setResults] = useState<NfeValidation[]>([]);
+  const [rawNfes, setRawNfes] = useState<import('./types/nfe.ts').NfeData[]>([]);
+  const [canceladasSet, setCanceladasSet] = useState<Set<string>>(new Set());
   const [parseErrors, setParseErrors] = useState<ParseError[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>('auditor');
@@ -89,7 +105,13 @@ export default function App() {
   const [discardedByCfop, setDiscardedByCfop] = useState(0);
   const [discardedZero, setDiscardedZero] = useState(0);
   const [discardedDuplicates, setDiscardedDuplicates] = useState(0);
+  const [discardedCanceladas, setDiscardedCanceladas] = useState(0);
+  const [discardedSemTtd, setDiscardedSemTtd] = useState(0);
+  const [discardedEstornos, setDiscardedEstornos] = useState(0);
   const [historicoRefreshKey, setHistoricoRefreshKey] = useState(0);
+  const [efdData, setEfdData] = useState<EfdData | null>(null);
+  const [efdParseError, setEfdParseError] = useState<string | null>(null);
+  const [crossValidation, setCrossValidation] = useState<CrossValidationResult | null>(null);
 
   const configRef = useRef(config);
   configRef.current = config;
@@ -119,6 +141,14 @@ export default function App() {
     } catch (err) {
       console.error('[Firebase] Erro ao carregar config:', err);
     }
+
+    // Regras loaded separately — failure here must not break config loading
+    try {
+      const regrasFromFirestore = await getRegrasFromFirestore();
+      if (regrasFromFirestore) setRegras(regrasFromFirestore);
+    } catch (err) {
+      console.error('[Firebase] Erro ao carregar regras:', err);
+    }
   }, []);
 
   useEffect(() => {
@@ -130,16 +160,75 @@ export default function App() {
   }, [reloadFromFirebase]);
 
   useEffect(() => {
-    setResults(prev => {
-      if (prev.length === 0) return prev;
-      return prev.map(r => validarNfe(r.nfe, config, cnpjInfoMap));
-    });
-  }, [config, cnpjInfoMap]);
+    if (rawNfes.length === 0) return;
+
+    // Re-aplica filtros + validação quando config/regras/cnpjInfoMap mudam
+    const { accepted: postFilters, counts } = filtrarNfes(rawNfes, canceladasSet);
+
+    let cfopDisc = 0;
+    let zeroDisc = 0;
+    const accepted: import('./types/nfe.ts').NfeData[] = [];
+    for (const nfe of postFilters) {
+      if (!nfeHasValue(nfe.itens)) zeroDisc++;
+      else if (!nfeHasAllowedCfop(nfe.itens)) cfopDisc++;
+      else if (!nfeHasTaxableItems(nfe.itens)) zeroDisc++;
+      else accepted.push(nfe);
+    }
+
+    setResults(accepted.map(nfe => validarNfe(nfe, config, cnpjInfoMap, regras)));
+    setDiscardedByCfop(cfopDisc);
+    setDiscardedZero(zeroDisc);
+    setDiscardedCanceladas(counts.canceladas);
+    setDiscardedSemTtd(counts.semTtd);
+    setDiscardedEstornos(counts.estornoPar);
+  }, [config, cnpjInfoMap, regras, rawNfes, canceladasSet]);
+
+  // Cross-validation: trigger when both XML and EFD data are available
+  useEffect(() => {
+    if (rawNfes.length === 0 || !efdData) {
+      setCrossValidation(null);
+      return;
+    }
+    setCrossValidation(crossValidate(rawNfes, canceladasSet, efdData));
+  }, [rawNfes, canceladasSet, efdData]);
 
   const handleFiles = useCallback(
     async (files: File[]) => {
       setIsProcessing(true);
-      const newResults: NfeValidation[] = [];
+
+      // Separate EFD (.txt) files from XML files
+      const xmlFiles: File[] = [];
+      const efdFiles: File[] = [];
+      for (const f of files) {
+        if (f.name.toLowerCase().endsWith('.txt')) {
+          efdFiles.push(f);
+        } else {
+          xmlFiles.push(f);
+        }
+      }
+
+      // Process EFD files
+      for (const efdFile of efdFiles) {
+        try {
+          const buffer = await efdFile.arrayBuffer();
+          const efdResult = parseEfd(buffer, efdFile.name);
+          if (efdResult.success) {
+            setEfdData(efdResult.data);
+            setEfdParseError(null);
+          } else {
+            setEfdParseError(efdResult.error);
+          }
+        } catch (e) {
+          setEfdParseError(e instanceof Error ? e.message : String(e));
+        }
+      }
+
+      // If only EFD files were uploaded, stop here
+      if (xmlFiles.length === 0) {
+        setIsProcessing(false);
+        return;
+      }
+
       const newErrors: ParseError[] = [];
       let cfopDiscarded = 0;
       let zeroDiscarded = 0;
@@ -147,26 +236,26 @@ export default function App() {
       const existingChaves = new Set(resultsRef.current.map(r => r.nfe.chaveAcesso));
       const chavesNesteLote = new Set<string>();
 
-      for (const file of files) {
+      // FILTRO 1 — detectar chaves canceladas pelo nome do arquivo
+      const canceladas = detectarCanceladas(xmlFiles.map(f => f.name));
+
+      // Primeira passada: parse de TODOS os XMLs sem filtros de CFOP/valor.
+      // O pool completo eh necessario para que detectarEstornos veja as NFs
+      // de estorno (que podem ter CFOP de entrada ou vProd=0) e consiga
+      // marcar as NFs estornadas para exclusao.
+      const allParsed: import('./types/nfe.ts').NfeData[] = [];
+      for (const file of xmlFiles) {
         try {
           const text = await file.text();
           const parseResult = parseNfe(text, file.name);
           if (parseResult.success) {
-            if (!nfeHasValue(parseResult.data.itens)) {
-              zeroDiscarded++;
-            } else if (!nfeHasAllowedCfop(parseResult.data.itens)) {
-              cfopDiscarded++;
-            } else if (!nfeHasTaxableItems(parseResult.data.itens)) {
-              zeroDiscarded++;
+            const chave = parseResult.data.chaveAcesso;
+            if (existingChaves.has(chave) || chavesNesteLote.has(chave)) {
+              duplicatedCount++;
             } else {
-              const chave = parseResult.data.chaveAcesso;
-              if (existingChaves.has(chave) || chavesNesteLote.has(chave)) {
-                duplicatedCount++;
-              } else {
-                existingChaves.add(chave);
-                chavesNesteLote.add(chave);
-                newResults.push(validarNfe(parseResult.data, config, cnpjInfoMap));
-              }
+              existingChaves.add(chave);
+              chavesNesteLote.add(chave);
+              allParsed.push(parseResult.data);
             }
           } else {
             newErrors.push({ fileName: file.name, error: parseResult.error });
@@ -179,11 +268,44 @@ export default function App() {
         }
       }
 
+      // FILTROS 1+2+3 — canceladas, estornos (sobre pool completo), sem TTD
+      const { accepted: postFilters, counts } = filtrarNfes(allParsed, canceladas);
+
+      // Agora aplicar filtros de CFOP/valor sobre as NFs que passaram
+      const accepted: import('./types/nfe.ts').NfeData[] = [];
+      for (const nfe of postFilters) {
+        if (!nfeHasValue(nfe.itens)) {
+          zeroDiscarded++;
+        } else if (!nfeHasAllowedCfop(nfe.itens)) {
+          cfopDiscarded++;
+        } else if (!nfeHasTaxableItems(nfe.itens)) {
+          zeroDiscarded++;
+        } else {
+          accepted.push(nfe);
+        }
+      }
+
+      // Validar apenas as NFs que passaram em todos os filtros
+      const newResults = accepted.map(nfe =>
+        validarNfe(nfe, config, cnpjInfoMap, regras),
+      );
+
+      // Guardar dados brutos para reprocessamento
+      setRawNfes(prev => [...prev, ...allParsed]);
+      setCanceladasSet(prev => {
+        const merged = new Set(prev);
+        for (const c of canceladas) merged.add(c);
+        return merged;
+      });
+
       setResults(prev => [...prev, ...newResults]);
       setParseErrors(prev => [...prev, ...newErrors]);
       setDiscardedByCfop(prev => prev + cfopDiscarded);
       setDiscardedZero(prev => prev + zeroDiscarded);
       setDiscardedDuplicates(prev => prev + duplicatedCount);
+      setDiscardedCanceladas(prev => prev + counts.canceladas);
+      setDiscardedSemTtd(prev => prev + counts.semTtd);
+      setDiscardedEstornos(prev => prev + counts.estornoPar);
       setIsProcessing(false);
 
       if (newResults.length > 0) {
@@ -195,25 +317,55 @@ export default function App() {
         }
       }
     },
-    [config, cnpjInfoMap],
+    [config, cnpjInfoMap, regras],
   );
 
   const handleClear = () => {
     setResults([]);
+    setRawNfes([]);
+    setCanceladasSet(new Set());
     setParseErrors([]);
     setFilters(emptyFilters());
     setCnpjInfoMap(new Map());
     setDiscardedByCfop(0);
     setDiscardedZero(0);
     setDiscardedDuplicates(0);
+    setDiscardedCanceladas(0);
+    setDiscardedSemTtd(0);
+    setDiscardedEstornos(0);
+    setEfdData(null);
+    setEfdParseError(null);
+    setCrossValidation(null);
   };
 
   const handleReprocess = useCallback(() => {
-    setResults(prev => {
-      if (prev.length === 0) return prev;
-      return prev.map(r => validarNfe(r.nfe, config, cnpjInfoMap));
-    });
-  }, [config, cnpjInfoMap]);
+    if (rawNfes.length === 0) return;
+
+    // Reaplicar TODOS os filtros desde os dados brutos
+    const { accepted: postFilters, counts } = filtrarNfes(rawNfes, canceladasSet);
+
+    let cfopDisc = 0;
+    let zeroDisc = 0;
+    const accepted: import('./types/nfe.ts').NfeData[] = [];
+    for (const nfe of postFilters) {
+      if (!nfeHasValue(nfe.itens)) zeroDisc++;
+      else if (!nfeHasAllowedCfop(nfe.itens)) cfopDisc++;
+      else if (!nfeHasTaxableItems(nfe.itens)) zeroDisc++;
+      else accepted.push(nfe);
+    }
+
+    const newResults = accepted.map(nfe =>
+      validarNfe(nfe, config, cnpjInfoMap, regras),
+    );
+
+    setResults(newResults);
+    setDiscardedByCfop(cfopDisc);
+    setDiscardedZero(zeroDisc);
+    setDiscardedDuplicates(0);
+    setDiscardedCanceladas(counts.canceladas);
+    setDiscardedSemTtd(counts.semTtd);
+    setDiscardedEstornos(counts.estornoPar);
+  }, [rawNfes, canceladasSet, config, cnpjInfoMap, regras]);
 
   const handleCnpjInfoLoaded = useCallback((info: CnpjInfo) => {
     setCnpjInfoMap(prev => new Map(prev).set(info.cnpj, info));
@@ -279,93 +431,36 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-neutral-50 to-indigo-50/30">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-lg"
       >
-        Pular para o conteudo principal
+        Pular para o conteúdo principal
       </a>
 
-      {/* Header */}
-      <header className="sticky top-0 z-30 bg-gradient-to-r from-[#2B318A] to-[#5A81FA] shadow-lg">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14">
-            {/* Logo */}
-            <button
-              onClick={() => setActiveView('auditor')}
-              className="flex items-center gap-3 rounded-lg -ml-2 px-2 py-1.5 transition-colors hover:bg-white/10 cursor-pointer"
-              aria-label={activeView === 'auditor' ? 'Auditor (pagina atual)' : 'Voltar ao Auditor'}
-            >
-              <img src="/icone-azul.png" alt="Prime" className="w-8 h-8 object-contain brightness-0 invert" />
-              <div className="hidden sm:block">
-                <h1 className="text-sm font-bold text-white leading-tight text-left tracking-wide">PRIME NF-e Auditor</h1>
-                <p className="text-[10px] text-white/60 leading-tight">TTD 410/SC &middot; {__BUILD_TIMESTAMP__}</p>
-              </div>
-            </button>
+      {/* Modern Sidebar layout */}
+      <Sidebar 
+        activeView={activeView} 
+        setActiveView={setActiveView} 
+        buildTimestamp={commitHash}
+      />
 
-            {/* Navigation Tabs */}
-            <Tabs value={activeView} onValueChange={(v) => setActiveView(v as ActiveView)}>
-              <TabsList className="bg-white/15 border-0">
-                <TabsTrigger value="auditor" className="gap-1.5 text-white/70 data-[state=active]:bg-white data-[state=active]:text-[#2B318A] data-[state=active]:shadow-md">
-                  <ShieldCheck size={15} aria-hidden />
-                  <span className="hidden sm:inline text-xs font-semibold">Auditor</span>
-                </TabsTrigger>
-                <TabsTrigger value="simulador" className="gap-1.5 text-white/70 data-[state=active]:bg-white data-[state=active]:text-[#2B318A] data-[state=active]:shadow-md">
-                  <Calculator size={15} aria-hidden />
-                  <span className="hidden sm:inline text-xs font-semibold">Simulador</span>
-                </TabsTrigger>
-                <TabsTrigger value="cadastros" className="gap-1.5 text-white/70 data-[state=active]:bg-white data-[state=active]:text-[#2B318A] data-[state=active]:shadow-md">
-                  <Settings size={15} aria-hidden />
-                  <span className="hidden sm:inline text-xs font-semibold">Cadastros</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+      <div className="flex-1 flex flex-col lg:ml-[260px]">
+        {/* Modern TopBar layout */}
+        <TopBar
+          activeView={activeView}
+          results={results}
+          regras={regras}
+          config={config}
+          cnpjInfoMap={cnpjInfoMap}
+          onReprocess={handleReprocess}
+          onClear={handleClear}
+          crossValidation={crossValidation}
+        />
 
-            {/* Actions */}
-            <div className="flex items-center gap-2">
-              {activeView === 'auditor' && results.length > 0 && (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleReprocess}
-                    title="Reprocessar todas as NF-es com as configuracoes atuais"
-                    className="bg-white/15 text-white border-0 hover:bg-white/25 text-xs"
-                  >
-                    <RefreshCw size={13} aria-hidden />
-                    <span className="hidden md:inline">Reprocessar</span>
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleClear}
-                    title="Limpar resultados"
-                    className="bg-white/15 text-white border-0 hover:bg-white/25 text-xs"
-                  >
-                    <Trash2 size={13} aria-hidden />
-                    <span className="hidden md:inline">Limpar</span>
-                  </Button>
-                </>
-              )}
-              <ExportButton results={results} />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={logout}
-                title="Sair"
-                className="bg-white/15 text-white border-0 hover:bg-white/25 text-xs"
-              >
-                <LogOut size={13} aria-hidden />
-                <span className="hidden md:inline">Sair</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main id="main-content" className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Main Content Scrollable Area */}
+        <main id="main-content" className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-10 pt-6 sm:pt-8 pb-12">
         {configLoading ? (
           <div className="space-y-4 py-8">
             <Skeleton className="h-40 rounded-xl" />
@@ -377,17 +472,39 @@ export default function App() {
               <Skeleton className="h-20 rounded-xl" />
             </div>
           </div>
+        ) : activeView === 'regras' ? (
+          <RegrasPage onRegrasChanged={setRegras} />
         ) : activeView === 'cadastros' ? (
           <CadastrosPage onConfigChanged={handleEmpresasUpdated} />
         ) : activeView === 'simulador' ? (
           <SimuladorPage
             config={config}
+            regras={regras}
             empresas={empresas}
             cnpjInfoMap={cnpjInfoMap}
             onCnpjInfoLoaded={handleCnpjInfoLoaded}
           />
+        ) : activeView === 'reconciliacao' ? (
+          <ReconciliacaoPanel results={results} regras={regras} config={config} />
+        ) : activeView === 'apuracao_ttd' ? (
+          <ApuracaoTTDPage results={results} regras={regras} config={config} />
+        ) : activeView === 'cross_validation' ? (
+          <CrossValidationPanel
+            crossValidation={crossValidation}
+            efdData={efdData}
+            efdParseError={efdParseError}
+            rawNfes={rawNfes}
+            onFiles={handleFiles}
+            isProcessing={isProcessing}
+          />
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-3">
+            {/* Page Header */}
+            <div className="mb-4">
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-heading text-foreground">Auditor Fiscal</h2>
+              <p className="text-muted-foreground mt-1 text-sm">Analise detalhada de conformidade e impostos indiretos.</p>
+            </div>
+
             <DropZone onFiles={handleFiles} isProcessing={isProcessing} />
 
             <HistoricoPanel refreshKey={historicoRefreshKey} />
@@ -399,12 +516,11 @@ export default function App() {
               discardedZero={discardedZero}
               discardedDuplicates={discardedDuplicates}
               config={config}
+              regras={regras}
             />
 
             {results.length > 0 && (
               <>
-                <CenarioLegend />
-
                 <GroupingPanel
                   results={results}
                   filters={filters}
@@ -422,17 +538,21 @@ export default function App() {
                   onEmpresasUpdated={handleEmpresasUpdated}
                 />
 
-                <NfeListView results={results} filters={filters} cnpjInfoMap={cnpjInfoMap} />
+                <AuditWorkspace
+                  results={results}
+                  filters={filters}
+                  cnpjInfoMap={cnpjInfoMap}
+                  regras={regras}
+                />
+
+                <CenarioLegend regras={regras} />
               </>
             )}
           </div>
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="fixed bottom-1 right-2 text-[10px] text-muted-foreground select-none pointer-events-none">
-        build {commitHash}
-      </footer>
+      </div>
     </div>
   );
 }

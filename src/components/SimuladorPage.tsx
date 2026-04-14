@@ -6,7 +6,7 @@ import { simular, type SimuladorParams, type SimuladorResult, type RegimeTributa
 import { formatCurrency, formatPercent, formatNumberBR, parseNumberBR } from '../utils/formatters.ts';
 import { consultarCnpj } from '../engine/cnpjService.ts';
 import { buildCompanySuggestionLabel, findExactCompanyByRazao, getRazaoSuggestions, type CompanyLookupEntry } from '../simulator/companyLookup.ts';
-import { Check, Plus, Trash2, Info, AlertTriangle } from 'lucide-react';
+import { Check, Plus, Trash2, Info, AlertTriangle, Building2, Package, Receipt, DollarSign, Coins, Calculator } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,7 +43,7 @@ const UF_LIST = [
 ] as const;
 
 const REGIME_OPTIONS: { value: RegimeTributario; label: string }[] = [
-  { value: 'normal', label: 'Contribuinte Normal' },
+  { value: 'normal', label: 'Lucro Real - TTD 410' },
   { value: 'simples_nacional', label: 'Simples Nacional' },
   { value: 'nao_contribuinte', label: 'Nao Contribuinte' },
 ];
@@ -59,14 +59,14 @@ const APLICACAO_OPTIONS: Array<{ value: AplicacaoProduto; label: string }> = [
 
 interface NcmEntry {
   ncm: string;
-  aplicacao: AplicacaoProduto;
+  aplicacao: AplicacaoProduto | undefined;
   isCamex: boolean;
   isIcmsSt: boolean;
   autoDetected: boolean;
 }
 
 function defaultNcmEntry(): NcmEntry {
-  return { ncm: '', aplicacao: 'revenda', isCamex: false, isIcmsSt: false, autoDetected: false };
+  return { ncm: '', aplicacao: undefined, isCamex: false, isIcmsSt: false, autoDetected: false };
 }
 
 interface SimFormState {
@@ -96,12 +96,13 @@ function defaultFormState(): SimFormState {
 
 interface SimuladorPageProps {
   config: AppConfig;
+  regras: import('../types/regras.ts').RegrasConfig;
   empresas?: EmpresaCadastro[];
   cnpjInfoMap?: Map<string, CnpjInfo>;
   onCnpjInfoLoaded?: (info: CnpjInfo) => void;
 }
 
-export function SimuladorPage({ config, empresas, cnpjInfoMap, onCnpjInfoLoaded }: SimuladorPageProps) {
+export function SimuladorPage({ config, regras, empresas, cnpjInfoMap, onCnpjInfoLoaded }: SimuladorPageProps) {
   const [form, setForm] = useState<SimFormState>(defaultFormState);
   const [results, setResults] = useState<SimuladorResult[]>([]);
   const [valorDisplay, setValorDisplay] = useState('');
@@ -218,7 +219,7 @@ export function SimuladorPage({ config, empresas, cnpjInfoMap, onCnpjInfoLoaded 
     }));
   }, [companyOptions, cnpjInfoMap]);
 
-  const updateNcmEntry = (idx: number, field: keyof NcmEntry, value: string | boolean) => {
+  const updateNcmEntry = (idx: number, field: keyof NcmEntry, value: string | boolean | undefined) => {
     setForm(prev => {
       const entries = [...prev.ncmEntries];
       if (field === 'ncm') {
@@ -234,7 +235,7 @@ export function SimuladorPage({ config, empresas, cnpjInfoMap, onCnpjInfoLoaded 
       } else if (field === 'isIcmsSt') {
         entries[idx] = { ...entries[idx], isIcmsSt: value as boolean };
       } else if (field === 'aplicacao') {
-        entries[idx] = { ...entries[idx], aplicacao: value as AplicacaoProduto };
+        entries[idx] = { ...entries[idx], aplicacao: value as AplicacaoProduto | undefined };
       }
       return { ...prev, ncmEntries: entries };
     });
@@ -269,7 +270,7 @@ export function SimuladorPage({ config, empresas, cnpjInfoMap, onCnpjInfoLoaded 
         isCamex: entry.isCamex,
         isIndustrial: form.isIndustrial,
       };
-      return simular(params, config);
+      return simular(params, config, regras);
     });
     setResults(newResults);
   };
@@ -285,229 +286,264 @@ export function SimuladorPage({ config, empresas, cnpjInfoMap, onCnpjInfoLoaded 
   const showConsultar = cnpjDigits.length === 14 && !cnpjResolved && !form.isPessoaFisica;
 
   return (
-    <div className="space-y-5">
-      {/* Formulario */}
-      <Card className="shadow-sm overflow-hidden">
-        <div className="bg-gradient-to-r from-[#2B318A] to-[#5A81FA] px-6 py-5">
-          <h2 className="text-lg font-bold text-white">Simulador TTD 410</h2>
-          <p className="text-sm text-white/60 mt-0.5">Simule cenarios tributarios para operacoes com TTD 410/SC</p>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+            Simulador <span className="text-foreground/40 mx-1">&gt;</span> TTD 410
+          </p>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight font-heading">Simulador TTD 410</h1>
         </div>
-        <CardContent className="pt-6">
-          {/* Destinatario */}
-          <div className="mb-6">
-            <h3 className="text-xs font-semibold text-primary uppercase tracking-wider mb-3 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-[10px] font-bold text-white shadow-sm">1</span>
-              Destinatario
-            </h3>
-            <div className="flex flex-wrap items-end gap-3 md:gap-4">
-              <div className="w-[96px]">
-                <Label className="text-xs uppercase tracking-wide">UF Destino</Label>
-                <Select value={form.destUf} onValueChange={v => updateForm('destUf', v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {UF_LIST.map(uf => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-[220px]">
-                <Label className="text-xs uppercase tracking-wide">Regime Tributario</Label>
-                <div className="flex items-center gap-2">
-                  <Select value={form.destRegime} onValueChange={v => updateForm('destRegime', v as RegimeTributario)} disabled={form.isPessoaFisica}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {REGIME_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  {cnpjResolved && <Check size={14} className="text-success-600 shrink-0" />}
-                </div>
-              </div>
-              <div className="min-w-[260px] flex-1">
-                <Label className="text-xs uppercase tracking-wide">Razao Social</Label>
-                <Input
-                  type="text"
-                  value={form.destRazaoSocial}
-                  onChange={e => handleRazaoSocialChange(e.target.value)}
-                  placeholder="Digite para buscar no cadastro"
-                  disabled={form.isPessoaFisica}
-                  list={razaoListId}
-                />
-                <datalist id={razaoListId}>
-                  {razaoSuggestions.map(option => (
-                    <option key={option.cnpj} value={buildCompanySuggestionLabel(option)} />
-                  ))}
-                </datalist>
-              </div>
-              <div className="w-[260px]">
-                <Label className="text-xs uppercase tracking-wide">CNPJ Destinatario</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="text"
-                    value={form.destCnpj}
-                    onChange={e => updateForm('destCnpj', formatCnpjInput(e.target.value))}
-                    placeholder="00.000.000/0000-00"
-                    disabled={form.isPessoaFisica}
-                  />
-                  {showConsultar && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={handleConsultarCnpj}
-                      disabled={cnpjLoading}
-                      className="shrink-0"
-                    >
-                      {cnpjLoading ? 'Consultando...' : 'Consultar'}
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <div className="w-[170px]">
-                <Label className="text-xs uppercase tracking-wide">Tipo Pessoa</Label>
-                <Label className="h-10 inline-flex items-center gap-2 text-sm text-foreground cursor-pointer px-3 border border-border rounded-md bg-card">
-                  <Checkbox
-                    checked={form.isPessoaFisica}
-                    onCheckedChange={(checked) => {
-                      const isChecked = checked === true;
-                      updateForm('isPessoaFisica', isChecked);
-                      if (isChecked) {
-                        updateForm('destCnpj', '');
-                        updateForm('destRazaoSocial', '');
-                        setCnpjResolved(false);
-                      }
-                    }}
-                  />
-                  Pessoa Fisica
-                </Label>
-              </div>
-              <div className="w-[170px]">
-                <Label className="text-xs uppercase tracking-wide">Industrial</Label>
-                <div className="flex items-center gap-2">
-                  <Select value={form.isIndustrial ? 'sim' : 'nao'} onValueChange={v => updateForm('isIndustrial', v === 'sim')} disabled={form.isPessoaFisica}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="nao">Nao</SelectItem>
-                      <SelectItem value="sim">Sim</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {cnpjResolved && <Check size={14} className="text-success-600 shrink-0" />}
-                </div>
-              </div>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            onClick={handleLimpar}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            Salvar Rascunho
+          </Button>
+          <Button
+            onClick={handleSimular}
+            disabled={!canSimulate}
+            className="rounded-[10px] px-6 bg-primary text-white shadow-md"
+          >
+            Gerar Simulacao
+          </Button>
+        </div>
+      </div>
+
+      {/* Section 1: Dados do Estabelecimento */}
+      <div className="bg-surface-lowest rounded-[10px] shadow-card p-6">
+        <div className="flex items-center gap-3 mb-5">
+          <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <Building2 size={16} className="text-primary" />
+          </span>
+          <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Dados do Estabelecimento</h2>
+        </div>
+
+        <div className="flex flex-wrap items-end gap-3 md:gap-4">
+          <div className="w-[220px]">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">CNPJ</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="text"
+                value={form.destCnpj}
+                onChange={e => updateForm('destCnpj', formatCnpjInput(e.target.value))}
+                placeholder="00.000.000/0000-00"
+                disabled={form.isPessoaFisica}
+              />
+              {showConsultar && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleConsultarCnpj}
+                  disabled={cnpjLoading}
+                  className="shrink-0"
+                >
+                  {cnpjLoading ? '...' : 'Consultar'}
+                </Button>
+              )}
             </div>
           </div>
 
-          {/* Produto — NCM por linha */}
-          <div className="mb-6">
-            <h3 className="text-xs font-semibold text-primary uppercase tracking-wider mb-3 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-[10px] font-bold text-white shadow-sm">2</span>
-              Produto
-            </h3>
-
-            <div className="space-y-2">
-              {/* NCM table header */}
-              <div className="grid grid-cols-[1fr_180px_120px_120px_36px] gap-2 items-center px-1">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">NCM</span>
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Aplicacao</span>
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">CAMEX</span>
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">ICMS ST</span>
-                <span></span>
-              </div>
-
-              {form.ncmEntries.map((entry, idx) => (
-                <div key={idx} className="grid grid-cols-[1fr_180px_120px_120px_36px] gap-2 items-center">
-                  <Input
-                    type="text"
-                    value={entry.ncm}
-                    onChange={e => updateNcmEntry(idx, 'ncm', e.target.value)}
-                    placeholder="8471.30.19"
-                    className="font-mono"
-                  />
-                  <Select value={entry.aplicacao} onValueChange={v => updateNcmEntry(idx, 'aplicacao', v as AplicacaoProduto)}>
-                    <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {APLICACAO_OPTIONS.map(option => (
-                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={entry.isCamex ? 'sim' : 'nao'} onValueChange={v => updateNcmEntry(idx, 'isCamex', v === 'sim')}>
-                    <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="nao">Nao</SelectItem>
-                      <SelectItem value="sim">Sim</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={entry.isIcmsSt ? 'sim' : 'nao'} onValueChange={v => updateNcmEntry(idx, 'isIcmsSt', v === 'sim')}>
-                    <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="nao">Nao</SelectItem>
-                      <SelectItem value="sim">Sim</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeNcmRow(idx)}
-                    className="h-8 w-8 text-muted-foreground hover:text-danger-600 hover:bg-danger-50"
-                    title="Remover NCM"
-                  >
-                    <Trash2 size={14} />
-                  </Button>
-                </div>
+          <div className="min-w-[240px] flex-1">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Razao Social</Label>
+            <Input
+              type="text"
+              value={form.destRazaoSocial}
+              onChange={e => handleRazaoSocialChange(e.target.value)}
+              placeholder="Digite para buscar no cadastro"
+              disabled={form.isPessoaFisica}
+              list={razaoListId}
+            />
+            <datalist id={razaoListId}>
+              {razaoSuggestions.map(option => (
+                <option key={option.cnpj} value={buildCompanySuggestionLabel(option)} />
               ))}
+            </datalist>
+          </div>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={addNcmRow}
-                className="text-primary mt-1"
-              >
-                <Plus size={14} />
-                Adicionar NCM
-              </Button>
+          <div className="w-[160px]">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">UF</Label>
+            <Select value={form.destUf} onValueChange={v => updateForm('destUf', v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {UF_LIST.map(uf => <SelectItem key={uf} value={uf}>{uf === 'SC' ? 'Santa Catarina' : uf}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-[220px]">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Regime</Label>
+            <div className="flex items-center gap-2">
+              <Select value={form.destRegime} onValueChange={v => updateForm('destRegime', v as RegimeTributario)} disabled={form.isPessoaFisica}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {REGIME_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {cnpjResolved && <Check size={14} className="text-success-600 shrink-0" />}
             </div>
           </div>
 
-          {/* Operacao */}
-          <div className="mb-6">
-            <h3 className="text-xs font-semibold text-primary uppercase tracking-wider mb-3 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-[10px] font-bold text-white shadow-sm">3</span>
-              Operacao
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs uppercase tracking-wide">Valor da Operacao (R$)</Label>
-                <Input
-                  type="text"
-                  value={valorDisplay}
-                  onChange={e => setValorDisplay(e.target.value)}
-                  onBlur={() => {
-                    const parsed = parseNumberBR(valorDisplay);
-                    updateForm('valorOperacao', parsed);
-                    if (parsed > 0) setValorDisplay(formatNumberBR(parsed));
-                  }}
-                  onFocus={e => e.target.select()}
-                  placeholder="1.000,00"
-                />
-              </div>
-            </div>
+          <div className="w-[150px]">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Tipo Pessoa</Label>
+            <Label className="h-10 inline-flex items-center gap-2 text-sm text-foreground cursor-pointer px-3 border border-border rounded-md bg-card">
+              <Checkbox
+                checked={form.isPessoaFisica}
+                onCheckedChange={(checked) => {
+                  const isChecked = checked === true;
+                  updateForm('isPessoaFisica', isChecked);
+                  if (isChecked) {
+                    updateForm('destCnpj', '');
+                    updateForm('destRazaoSocial', '');
+                    setCnpjResolved(false);
+                  }
+                }}
+              />
+              Pessoa Fisica
+            </Label>
           </div>
 
-          {/* Botoes */}
-          <div className="flex gap-3 pt-4 mt-2 border-t border-border">
-            <Button
-              onClick={handleSimular}
-              disabled={!canSimulate}
-            >
-              Simular
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleLimpar}
-            >
-              Limpar
-            </Button>
+          <div className="w-[140px]">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Industrial</Label>
+            <div className="flex items-center gap-2">
+              <Select value={form.isIndustrial ? 'sim' : 'nao'} onValueChange={v => updateForm('isIndustrial', v === 'sim')} disabled={form.isPessoaFisica}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nao">Nao</SelectItem>
+                  <SelectItem value="sim">Sim</SelectItem>
+                </SelectContent>
+              </Select>
+              {cnpjResolved && <Check size={14} className="text-success-600 shrink-0" />}
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {/* Section 2: Itens para Simulacao */}
+      <div className="bg-surface-lowest rounded-[10px] shadow-card p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <Package size={16} className="text-primary" />
+            </span>
+            <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Itens para Simulacao</h2>
+          </div>
+          {validEntries.length > 0 && (
+            <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider">
+              {validEntries.length} {validEntries.length === 1 ? 'item selecionado' : 'itens selecionados'}
+            </Badge>
+          )}
+        </div>
+
+        {/* Valor da Operacao - above table */}
+        <div className="mb-4 max-w-[240px]">
+          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Valor da Operacao (R$)</Label>
+          <Input
+            type="text"
+            value={valorDisplay}
+            onChange={e => setValorDisplay(e.target.value)}
+            onBlur={() => {
+              const parsed = parseNumberBR(valorDisplay);
+              updateForm('valorOperacao', parsed);
+              if (parsed > 0) setValorDisplay(formatNumberBR(parsed));
+            }}
+            onFocus={e => e.target.select()}
+            placeholder="1.000,00"
+          />
+        </div>
+
+        {/* NCM Table */}
+        <div className="rounded-lg border border-border overflow-hidden">
+          <Table className="text-xs">
+            <TableHeader>
+              <TableRow className="bg-surface-low">
+                <TableHead className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">NCM</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">Aplicacao</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3 text-center">CAMEX</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3 text-center">ICMS ST</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3 text-right">Subtotal</TableHead>
+                <TableHead className="w-[44px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {form.ncmEntries.map((entry, idx) => (
+                <TableRow key={idx} className="hover:bg-surface-low/50">
+                  <TableCell className="px-4 py-2">
+                    <Input
+                      type="text"
+                      value={entry.ncm}
+                      onChange={e => updateNcmEntry(idx, 'ncm', e.target.value)}
+                      placeholder="8471.30.19"
+                      className="font-mono h-9 border-0 bg-transparent shadow-none px-0 focus-visible:ring-0 focus-visible:bg-surface-low rounded"
+                    />
+                  </TableCell>
+                  <TableCell className="px-4 py-2">
+                    <Select
+                      value={entry.aplicacao ?? '_none'}
+                      onValueChange={v => updateNcmEntry(idx, 'aplicacao', v === '_none' ? undefined : v as AplicacaoProduto)}
+                    >
+                      <SelectTrigger className="text-xs h-9 border-0 bg-transparent shadow-none"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">Nao informado</SelectItem>
+                        {APLICACAO_OPTIONS.map(option => (
+                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="px-4 py-2 text-center">
+                    <Select value={entry.isCamex ? 'sim' : 'nao'} onValueChange={v => updateNcmEntry(idx, 'isCamex', v === 'sim')}>
+                      <SelectTrigger className="text-xs h-9 border-0 bg-transparent shadow-none mx-auto w-[80px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="nao">Nao</SelectItem>
+                        <SelectItem value="sim">Sim</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="px-4 py-2 text-center">
+                    <Select value={entry.isIcmsSt ? 'sim' : 'nao'} onValueChange={v => updateNcmEntry(idx, 'isIcmsSt', v === 'sim')}>
+                      <SelectTrigger className="text-xs h-9 border-0 bg-transparent shadow-none mx-auto w-[80px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="nao">Nao</SelectItem>
+                        <SelectItem value="sim">Sim</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="px-4 py-2 text-right font-mono text-muted-foreground tabular-nums">
+                    {form.valorOperacao > 0 && entry.ncm.replace(/\D/g, '').length >= 4
+                      ? formatCurrency(form.valorOperacao)
+                      : '\u2014'}
+                  </TableCell>
+                  <TableCell className="px-2 py-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeNcmRow(idx)}
+                      className="h-8 w-8 text-muted-foreground hover:text-danger-600 hover:bg-danger-50"
+                      title="Remover item"
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={addNcmRow}
+          className="text-primary mt-3 uppercase text-[11px] font-semibold tracking-wider"
+        >
+          <Plus size={14} />
+          Adicionar Item
+        </Button>
+      </div>
 
       {/* Resultados */}
       {results.length > 0 && <ResultsView results={results} />}
@@ -530,128 +566,196 @@ function ResultsView({ results }: { results: SimuladorResult[] }) {
   );
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-sm">
-          Resultado da Simulacao{results.length > 1 ? ` (${results.length} NCMs)` : ''}
-        </CardTitle>
-      </CardHeader>
-
-      {/* Vedado warnings at top */}
+    <div className="space-y-6">
+      {/* Vedado warnings - PROMINENT */}
       {results.some(r => r.isVedado) && (
-        <div className="mx-6 mb-2">
-          <Alert variant="destructive">
-            <AlertTriangle className="h-5 w-5" />
-            <AlertTitle>Item(ns) vedado(s) — TTD 410 NAO pode ser aplicado</AlertTitle>
-            <AlertDescription>
-              {results.filter(r => r.isVedado).map((r, i) => (
-                <p key={i} className="text-xs mt-1">
-                  <span className="font-mono font-semibold">{r.ncm}</span> — {r.vedacaoMsg}
-                </p>
-              ))}
-            </AlertDescription>
-          </Alert>
+        <div className="rounded-[10px] bg-destructive/10 border-2 border-destructive/40 p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-full bg-destructive flex items-center justify-center">
+              <AlertTriangle size={16} className="text-white" />
+            </div>
+            <h3 className="text-sm font-bold text-destructive uppercase tracking-wide">
+              VEDACAO — TTD 410 NAO pode ser aplicado
+            </h3>
+          </div>
+          {results.filter(r => r.isVedado).map((r, i) => (
+            <div key={i} className="flex items-start gap-3 py-2 border-t border-destructive/20">
+              <Badge variant="destructive" className="font-mono font-bold text-xs px-2 py-0.5 shrink-0">{r.ncm}</Badge>
+              <span className="text-sm font-medium text-destructive">{r.vedacaoMsg}</span>
+            </div>
+          ))}
         </div>
       )}
 
-      <CardContent className="p-0">
+      {/* KPI Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total BC ICMS */}
+        <div className="bg-surface-lowest rounded-[10px] p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+              <Receipt size={14} className="text-primary" />
+            </span>
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Total BC ICMS</span>
+          </div>
+          <p className="text-xl font-bold text-foreground font-heading tabular-nums">{formatCurrency(totals.bcIntegral)}</p>
+        </div>
+
+        {/* ICMS Destacado */}
+        <div className="bg-surface-lowest rounded-[10px] p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+              <DollarSign size={14} className="text-primary" />
+            </span>
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">ICMS Destacado</span>
+          </div>
+          <p className="text-xl font-bold text-foreground font-heading tabular-nums">{formatCurrency(totals.icmsDestacado)}</p>
+        </div>
+
+        {/* ICMS A Recolher - highlighted card */}
+        <div className="bg-primary rounded-[10px] p-6 shadow-md">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
+              <Calculator size={14} className="text-white" />
+            </span>
+            <span className="text-[10px] font-semibold text-white/80 uppercase tracking-wider">ICMS a Recolher</span>
+          </div>
+          <p className="text-2xl font-bold text-white font-heading tabular-nums">{formatCurrency(totals.icmsRecolher)}</p>
+        </div>
+
+        {/* Fundos 0,4% */}
+        <div className="bg-surface-lowest rounded-[10px] p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+              <Coins size={14} className="text-primary" />
+            </span>
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Fundos 0,4%</span>
+          </div>
+          <p className="text-xl font-bold text-foreground font-heading tabular-nums">{formatCurrency(totals.fundos)}</p>
+        </div>
+      </div>
+
+      {/* Memoria de Calculo Detalhada */}
+      <div className="bg-surface-lowest rounded-[10px] shadow-card overflow-hidden">
+        <div className="flex items-center gap-3 px-6 py-5 border-b border-border">
+          <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <Calculator size={16} className="text-primary" />
+          </span>
+          <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">Memoria de Calculo Detalhada</h2>
+          {results.length > 1 && (
+            <Badge variant="secondary" className="ml-auto font-mono text-[10px]">{results.length} NCMs</Badge>
+          )}
+        </div>
+
         <div className="overflow-x-auto">
-          <Table className="min-w-[900px] text-xs">
+          <Table className="min-w-[800px] text-xs">
             <TableHeader>
-              <TableRow className="bg-muted text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                <TableHead className="text-left px-4 py-2.5 font-medium">NCM</TableHead>
-                <TableHead className="text-left px-4 py-2.5 font-medium">Cenario</TableHead>
-                <TableHead className="text-left px-4 py-2.5 font-medium">Ref TTD</TableHead>
-                <TableHead className="text-right px-4 py-2.5 font-medium bg-primary/5">Aliq. Dest.</TableHead>
-                <TableHead className="text-right px-4 py-2.5 font-medium">BC Integral</TableHead>
-                <TableHead className="text-right px-4 py-2.5 font-medium bg-primary/5">ICMS Destacado</TableHead>
-                <TableHead className="text-right px-4 py-2.5 font-medium">CP %</TableHead>
-                <TableHead className="text-right px-4 py-2.5 font-medium">ICMS Recolher</TableHead>
-                <TableHead className="text-right px-4 py-2.5 font-medium">Fundos 0,4%</TableHead>
-                <TableHead className="text-right px-4 py-2.5 font-medium">Total Recolher</TableHead>
+              <TableRow className="bg-surface-low">
+                <TableHead className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">NCM / Cenario</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3 text-center">Aliq. Dest.</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3 text-right">Base de Calculo</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3 text-right">ICMS Destacado</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3 text-center">CP %</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3 text-right">ICMS a Recolher</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3 text-right">Fundos</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3 text-right">Total a Pagar</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {results.map((r, idx) => (
-                <ResultRow key={idx} result={r} />
+                <DetailRow key={idx} result={r} />
               ))}
             </TableBody>
             {results.length > 1 && (
               <TableFooter>
-                <TableRow className="bg-muted border-t-2 border-border font-semibold">
-                  <TableCell className="px-4 py-3 text-foreground" colSpan={3}>Total</TableCell>
-                  <TableCell className="px-4 py-3 bg-primary/5"></TableCell>
-                  <TableCell className="px-4 py-3 text-right font-mono text-muted-foreground">{formatCurrency(totals.bcIntegral)}</TableCell>
-                  <TableCell className="px-4 py-3 text-right font-mono text-primary bg-primary/5 text-sm">{formatCurrency(totals.icmsDestacado)}</TableCell>
+                <TableRow className="bg-surface-low border-t-2 border-border font-semibold">
+                  <TableCell className="px-4 py-3 text-foreground text-xs font-bold">Totais Consolidados</TableCell>
                   <TableCell className="px-4 py-3"></TableCell>
-                  <TableCell className="px-4 py-3 text-right font-mono text-muted-foreground">{formatCurrency(totals.icmsRecolher)}</TableCell>
-                  <TableCell className="px-4 py-3 text-right font-mono text-muted-foreground">{formatCurrency(totals.fundos)}</TableCell>
-                  <TableCell className="px-4 py-3 text-right font-mono text-foreground">{formatCurrency(totals.total)}</TableCell>
+                  <TableCell className="px-4 py-3 text-right font-mono text-foreground tabular-nums">{formatCurrency(totals.bcIntegral)}</TableCell>
+                  <TableCell className="px-4 py-3 text-right font-mono text-foreground tabular-nums">{formatCurrency(totals.icmsDestacado)}</TableCell>
+                  <TableCell className="px-4 py-3"></TableCell>
+                  <TableCell className="px-4 py-3 text-right font-mono text-primary font-bold tabular-nums">{formatCurrency(totals.icmsRecolher)}</TableCell>
+                  <TableCell className="px-4 py-3 text-right font-mono text-muted-foreground tabular-nums">{formatCurrency(totals.fundos)}</TableCell>
+                  <TableCell className="px-4 py-3 text-right font-mono text-foreground font-bold tabular-nums">{formatCurrency(totals.total)}</TableCell>
                 </TableRow>
               </TableFooter>
             )}
           </Table>
         </div>
+      </div>
 
-        {/* Observacoes consolidadas */}
-        {results.some(r => r.observacoes.length > 0) && (
-          <div className="bg-amber-50/50 border-t border-border px-6 py-4">
-            <h4 className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 uppercase tracking-wider mb-2">
-              <Info size={14} />
-              Observacoes
-            </h4>
-            <ul className="list-disc list-inside text-xs text-foreground space-y-1">
-              {/* Deduplicate observations across results */}
+      {/* Observacoes - Warning Banner */}
+      {results.some(r => r.observacoes.length > 0) && (
+        <div className="flex items-start gap-3 rounded-[10px] bg-warning/10 border border-warning/30 px-5 py-4">
+          <AlertTriangle size={18} className="text-warning-600 shrink-0 mt-0.5" />
+          <div>
+            <ul className="text-xs text-foreground space-y-1">
               {[...new Set(results.flatMap(r => r.observacoes))].map((obs, i) => (
                 <li key={i}>{obs}</li>
               ))}
             </ul>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      )}
+    </div>
   );
 }
 
-function ResultRow({ result: r }: { result: SimuladorResult }) {
+function DetailRow({ result: r }: { result: SimuladorResult }) {
   const vedadoRow = r.isVedado;
+
   const rowClass = vedadoRow
-    ? 'border-t border-danger-100 bg-danger-50/60'
-    : 'border-t border-border hover:bg-muted transition-colors';
+    ? 'bg-danger-50 text-danger-700'
+    : 'hover:bg-surface-low/50 transition-colors';
 
   return (
     <TableRow className={rowClass}>
-      <TableCell className="px-4 py-3 font-mono text-foreground">
-        <span className="flex items-center gap-1.5">
+      {/* NCM / Cenario */}
+      <TableCell className="px-4 py-3 text-foreground">
+        <div className="flex items-center gap-1.5">
           {vedadoRow && <AlertTriangle size={14} className="text-danger-600 shrink-0" />}
-          {r.ncm}
-        </span>
+          <div>
+            <span className="font-mono font-semibold text-xs">{r.ncm}</span>
+            {!vedadoRow && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <Badge className="font-mono text-[9px] px-1 py-0">{r.cenarioClassificado}</Badge>
+                <span className="text-[10px] text-muted-foreground truncate max-w-[160px]">{r.cenarioNome}</span>
+                {r.refTTD && <span className="text-[10px] text-muted-foreground font-mono">[{r.refTTD}]</span>}
+              </div>
+            )}
+            {vedadoRow && <span className="text-[10px] text-danger-600 font-bold ml-1">VEDADO</span>}
+          </div>
+        </div>
       </TableCell>
-      <TableCell className="px-4 py-3">
-        <span className="inline-flex items-center gap-1.5">
-          {vedadoRow ? (
-            <Badge variant="destructive" className="font-mono font-bold text-[10px] px-1.5 py-0.5">VEDADO</Badge>
-          ) : (
-            <Badge className="font-mono font-bold text-[10px] px-1.5 py-0.5">{r.cenarioClassificado}</Badge>
-          )}
-          <span className={cn('truncate max-w-[120px]', vedadoRow ? 'text-danger-600' : 'text-muted-foreground')} title={r.cenarioNome}>{r.cenarioNome}</span>
-        </span>
-      </TableCell>
-      <TableCell className="px-4 py-3 text-muted-foreground font-mono text-[10px]">{r.refTTD || '\u2014'}</TableCell>
-      <TableCell className={cn('px-4 py-3 text-right font-mono font-bold text-sm', vedadoRow ? 'bg-danger-50 text-danger-700 line-through' : 'bg-primary/5 text-primary')}>
+      {/* Aliq. Destacada */}
+      <TableCell className={cn('px-4 py-3 text-center font-mono font-bold tabular-nums', vedadoRow ? 'text-danger-600 line-through' : 'text-primary')}>
         {formatPercent(r.aliquotaDestacada)}
       </TableCell>
-      <TableCell className="px-4 py-3 text-right font-mono text-muted-foreground">{formatCurrency(r.bcIntegral)}</TableCell>
-      <TableCell className={cn('px-4 py-3 text-right font-mono font-bold text-sm', vedadoRow ? 'bg-danger-50 text-danger-700 line-through' : 'bg-primary/5 text-primary')}>
+      {/* Base de Calculo */}
+      <TableCell className="px-4 py-3 text-right font-mono text-muted-foreground tabular-nums">
+        {formatCurrency(r.bcIntegral)}
+      </TableCell>
+      {/* ICMS Destacado */}
+      <TableCell className={cn('px-4 py-3 text-right font-mono tabular-nums', vedadoRow ? 'text-danger-600 line-through' : 'text-foreground font-semibold')}>
         {formatCurrency(r.icmsDestacado)}
       </TableCell>
-      <TableCell className="px-4 py-3 text-right text-muted-foreground">{r.creditoPresumido > 0 ? formatPercent(r.creditoPresumido) : '\u2014'}</TableCell>
-      <TableCell className="px-4 py-3 text-right font-mono text-muted-foreground">
-        {formatCurrency(r.icmsRecolhimento.valor)}
-        <span className="text-muted-foreground ml-1">({formatPercent(r.icmsRecolhimento.pct)})</span>
+      {/* CP % */}
+      <TableCell className="px-4 py-3 text-center text-muted-foreground tabular-nums">
+        {r.creditoPresumido > 0 ? formatPercent(r.creditoPresumido) : '\u2014'}
       </TableCell>
-      <TableCell className="px-4 py-3 text-right font-mono text-muted-foreground">{formatCurrency(r.fundosSociais.valor)}</TableCell>
-      <TableCell className="px-4 py-3 text-right font-mono font-semibold text-foreground">{formatCurrency(r.totalRecolher.valor)}</TableCell>
+      {/* ICMS a Recolher */}
+      <TableCell className="px-4 py-3 text-right font-mono tabular-nums">
+        <span className="text-primary font-semibold">{formatCurrency(r.icmsRecolhimento.valor)}</span>
+        <span className="text-muted-foreground text-[10px] ml-1">({formatPercent(r.icmsRecolhimento.pct)})</span>
+      </TableCell>
+      {/* Fundos */}
+      <TableCell className="px-4 py-3 text-right font-mono text-muted-foreground tabular-nums">
+        {formatCurrency(r.fundosSociais.valor)}
+        <span className="text-[10px] ml-1">({formatPercent(r.fundosSociais.pct)})</span>
+      </TableCell>
+      {/* Total a Pagar */}
+      <TableCell className="px-4 py-3 text-right font-mono font-bold text-foreground tabular-nums">
+        {formatCurrency(r.totalRecolher.valor)}
+      </TableCell>
     </TableRow>
   );
 }

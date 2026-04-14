@@ -57,9 +57,10 @@ export function validarCFOP(
   }
 
   return {
-    status: 'ALERTA',
+    status: 'AVISO',
     mensagem: `CFOP ${item.cfop} nao e padrao para cenario ${cenario.id}. Esperado: ${cenario.cfopsEsperados.join(', ')}.`,
     regra: 'CF01',
     cenario: cenario.id,
+    acao: { tipo: 'verificar_documento', campo: 'CFOP', valorAtual: item.cfop, valorEsperado: cenario.cfopsEsperados.join('/'), prioridade: 'baixa' },
   };
 }

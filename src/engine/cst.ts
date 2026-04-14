@@ -19,6 +19,7 @@ import type { ValidationResult } from '../types/validation.ts';
 export function validarCST(
   item: ItemData,
   cenario: CenarioConfig,
+  isCAMEX?: boolean,
 ): ValidationResult {
   const orig = item.cstOrig;
   const cstTrib = item.cst.length >= 2 ? item.cst.slice(-2) : item.cst;
@@ -29,10 +30,22 @@ export function validarCST(
 
   if (!origensImportador.includes(orig)) {
     return {
-      status: 'ALERTA',
+      status: 'AVISO',
       mensagem: `CST origem ${orig} (${item.cst}): esperado 1 (importacao direta), 6 (sem similar/CAMEX) ou 7 (adq. mercado interno sem similar). Origem ${orig} pode indicar mercadoria nacional.`,
       regra: 'CST02',
       cenario: cenario.id,
+      acao: { tipo: 'verificar_cadastro', campo: 'CST Origem', valorAtual: orig, valorEsperado: '1/6/7', prioridade: 'media' },
+    };
+  }
+
+  // Alerta: CAMEX via lista NCM mas origem 1 (com similar) — possivel contradicao
+  if (isCAMEX && orig === '1') {
+    return {
+      status: 'AVISO',
+      mensagem: `NCM na lista CAMEX mas CST Origem = 1 (com similar nacional). Verificar se a origem deveria ser 6 (sem similar).`,
+      regra: 'CST05',
+      cenario: cenario.id,
+      acao: { tipo: 'verificar_documento', campo: 'CST Origem', valorAtual: orig, valorEsperado: '6', prioridade: 'media' },
     };
   }
 
@@ -45,22 +58,37 @@ export function validarCST(
     const stEsperado = cenario.cstEsperado.includes('10') || cenario.cstEsperado.includes('70');
     if (!stEsperado) {
       return {
-        status: 'ALERTA',
+        status: 'DIVERGENCIA',
         mensagem: `CST trib 10 (ST) no item ${item.nItem} — cenario ${cenario.id} normalmente nao tem ST. Verificar se ha ST devida.`,
         regra: 'CST03',
         cenario: cenario.id,
+        acao: { tipo: 'verificar_documento', campo: 'CST', valorAtual: item.cst, prioridade: 'media' },
       };
     }
   }
 
-  // Reducao BC (20) = sempre alertar para verificacao
+  // Reducao BC (20) — v3 M02: apenas observar, sem alerta/divergencia.
+  // Para importador TTD 409/410 a reducao de BC e recorrente e legitima.
   if (cstTrib === '20') {
-    return {
-      status: 'ALERTA',
-      mensagem: `CST trib 20 (reducao BC) no item ${item.nItem}. Verificar se a reducao esta correta para cenario ${cenario.id}.`,
-      regra: 'CST04',
-      cenario: cenario.id,
-    };
+    const carga = cenario.cargaEfetiva;
+    if (item.pRedBC > 0 && carga > 0) {
+      const aliqEfetiva = item.pICMS * (1 - item.pRedBC / 100);
+      return {
+        status: 'INFO',
+        mensagem: `CST trib 20 (reducao BC) item ${item.nItem}: aliquota efetiva ${aliqEfetiva.toFixed(2)}% (pICMS ${item.pICMS}% x reducao ${item.pRedBC}%). Carga cenario ${cenario.id}: ${carga.toFixed(2)}%.`,
+        regra: 'CST04',
+        cenario: cenario.id,
+        acao: { tipo: 'nenhuma', prioridade: 'baixa' },
+      };
+    } else {
+      return {
+        status: 'INFO',
+        mensagem: `CST trib 20 (reducao BC) item ${item.nItem} sem pRedBC declarado ou sem carga efetiva calculavel no cenario ${cenario.id}.`,
+        regra: 'CST04',
+        cenario: cenario.id,
+        acao: { tipo: 'nenhuma', prioridade: 'baixa' },
+      };
+    }
   }
 
   // Composicao para exibicao

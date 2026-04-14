@@ -32,11 +32,11 @@ describe('classificarCenario', () => {
     expect(classificarCenario(item, dest, config)).toBe('A6');
   });
 
-  it('A8: interstate + copper/steel + contributor', () => {
+  it('A8 desativado v3: cobre/aco interstate cai em A1 (modificador, nao cenario)', () => {
     const cfg = makeConfig({ listaCobreAco: ['7401'] });
     const item = makeItem({ ncm: '74011000', cfop: '6101', cst: '090' });
     const dest = makeDest({ uf: 'SP', indIEDest: '1' });
-    expect(classificarCenario(item, dest, cfg)).toBe('A8');
+    expect(classificarCenario(item, dest, cfg)).toBe('A1');
   });
 
   it('A9: transfer interstate', () => {
@@ -113,16 +113,53 @@ describe('classificarCenario', () => {
     expect(classificarCenario(item, dest, cfg)).toBe('B3');
   });
 
-  it('B2: internal + industrial + CAMEX → CAMEX overrides industrial', () => {
+  it('B3: internal + CNAE industrial via cnpjInfoMap (fora da listaIndustriais)', () => {
+    const cfg = makeConfig({ listaIndustriais: [] });
+    const item = makeItem({ cfop: '5101' });
+    const dest = makeDest({ uf: 'SC', indIEDest: '1', cnpj: '12345678000199' });
+    const cnpjInfoMap = new Map([
+      ['12345678000199', { cnpj: '12345678000199', razaoSocial: 'X', simplesOptante: false, isMei: false, cnaePrincipal: '2511', cnaeDescricao: 'Metalúrgica', cnaesSecundarios: [], isIndustrial: true }],
+    ]);
+    expect(classificarCenario(item, dest, cfg, undefined, undefined, cnpjInfoMap)).toBe('B3');
+  });
+
+  it('B1: internal + CNAE NÃO industrial → cai em B1 (sem promoção)', () => {
+    const cfg = makeConfig({ listaIndustriais: [] });
+    const item = makeItem({ cfop: '5101' });
+    const dest = makeDest({ uf: 'SC', indIEDest: '1', cnpj: '12345678000199' });
+    const cnpjInfoMap = new Map([
+      ['12345678000199', { cnpj: '12345678000199', razaoSocial: 'X', simplesOptante: false, isMei: false, cnaePrincipal: '4711', cnaeDescricao: 'Comércio', cnaesSecundarios: [], isIndustrial: false }],
+    ]);
+    expect(classificarCenario(item, dest, cfg, undefined, undefined, cnpjInfoMap)).toBe('B1');
+  });
+
+  it('B3: listaIndustriais tem precedência sobre CNAE não-industrial', () => {
+    const cfg = makeConfig({ listaIndustriais: ['12345678000199'] });
+    const item = makeItem({ cfop: '5101' });
+    const dest = makeDest({ uf: 'SC', indIEDest: '1', cnpj: '12345678000199' });
+    const cnpjInfoMap = new Map([
+      ['12345678000199', { cnpj: '12345678000199', razaoSocial: 'X', simplesOptante: false, isMei: false, cnaePrincipal: '4711', cnaeDescricao: 'Comércio', cnaesSecundarios: [], isIndustrial: false }],
+    ]);
+    expect(classificarCenario(item, dest, cfg, undefined, undefined, cnpjInfoMap)).toBe('B3');
+  });
+
+  it('B2-Industrial: internal + industrial + CAMEX → ramificação específica CAMEX+industrial', () => {
     const cfg = makeConfig({ listaIndustriais: ['12345678000199'], listaCamex: ['84713019'] });
     const item = makeItem({ ncm: '84713019', cfop: '5101' });
     const dest = makeDest({ uf: 'SC', indIEDest: '1', cnpj: '12345678000199' });
-    expect(classificarCenario(item, dest, cfg)).toBe('B2');
+    expect(classificarCenario(item, dest, cfg)).toBe('B2-Industrial');
   });
 
-  it('B2: CST origem 6 (CAMEX) even if NCM not in listaCamex → classified as CAMEX', () => {
+  it('B2-Industrial: CST origem 6 (CAMEX) + dest industrial → B2-Industrial (listaCamex vazia)', () => {
     const cfg = makeConfig({ listaIndustriais: ['12345678000199'], listaCamex: [] });
     const item = makeItem({ ncm: '99999999', cstOrig: '6', cfop: '5101' });
+    const dest = makeDest({ uf: 'SC', indIEDest: '1', cnpj: '12345678000199' });
+    expect(classificarCenario(item, dest, cfg)).toBe('B2-Industrial');
+  });
+
+  it('B2: CAMEX sem destinatário industrial → B2 puro', () => {
+    const cfg = makeConfig({ listaIndustriais: [], listaCamex: ['84713019'] });
+    const item = makeItem({ ncm: '84713019', cfop: '5101' });
     const dest = makeDest({ uf: 'SC', indIEDest: '1', cnpj: '12345678000199' });
     expect(classificarCenario(item, dest, cfg)).toBe('B2');
   });

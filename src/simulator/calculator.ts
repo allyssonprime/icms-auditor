@@ -32,6 +32,22 @@ export function calcularTTD(
   const fundosPct = cenario.fundos;
   const cargaEfetiva = cargaEfetivaOverride ?? cenario.cargaEfetiva;
 
+  // TTD nao se aplica (cargaEfetiva = -1): ICMS integral, sem CP, sem fundos
+  if (cargaEfetiva < 0) {
+    const icms = round2(bc * (aliquotaDestacada / 100));
+    return {
+      aliquotaDestacada,
+      icmsRecolhimento: icms,
+      icmsRecolhimentoPct: aliquotaDestacada,
+      fundosSociais: 0,
+      fundosSociaisPct: 0,
+      totalRecolher: icms,
+      totalRecolherPct: aliquotaDestacada,
+      creditoPresumido: 0,
+      bcIntegral: round2(bc),
+    };
+  }
+
   // Cenários sem CP (B7-PF, B9-diferimento, B12-transferência interna):
   // ICMS é integral (alíquota cheia), sem crédito presumido
   const icmsRecolhimentoPct = cenario.temCP ? cargaEfetiva : aliquotaDestacada;

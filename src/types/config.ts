@@ -7,6 +7,7 @@ export interface AppConfig {
   listaCD: string[];
   listaVedacao25a: string[];
   listaVedacao25b: string[];
+  listaCamex210: string[];
   ufAliquotas: Record<string, number>;
   aliquotasInternasValidas: number[];
 }

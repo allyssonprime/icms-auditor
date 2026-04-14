@@ -2,7 +2,10 @@ import type { StatusType } from './validation.ts';
 
 export interface AuditoriaResumo {
   nfesOk: number;
-  nfesAlerta: number;
+  nfesAlerta: number; // legacy — kept for backwards compatibility with stored docs
+  nfesInfo: number;
+  nfesAviso: number;
+  nfesDivergencia: number;
   nfesErro: number;
   totalBC: number;
   totalICMSDestacado: number;
