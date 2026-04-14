@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { RegrasConfig, GrupoRegra, Ramificacao, CondicoesCenario } from '../../types/regras.ts';
+import type { RegrasConfig, CondicoesCenario } from '../../types/regras.ts';
 import { mergeValores } from '../../types/regras.ts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';

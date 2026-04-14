@@ -8,6 +8,7 @@ function makeAppConfig(): AppConfig {
   return {
     decreto2128: [],
     listaCamex: [],
+    listaCamex210: [],
     listaCobreAco: [],
     listaSN: [],
     listaIndustriais: [],

@@ -1,4 +1,4 @@
-import { RefreshCw, Trash2, LogOut, Search, Bell, HelpCircle } from 'lucide-react';
+import { RefreshCw, Trash2, Search, Bell, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ExportButton } from '../ExportButton';
 import type { NfeValidation, CnpjInfo } from '../../types/validation';

@@ -33,7 +33,7 @@ function makeGrupo(id: string, overrides: Partial<GrupoRegra> = {}): GrupoRegra 
     descricao: '',
     prioridade: 1,
     ativo: true,
-    condicoes: { operacao: 'interna' as const, tipoDest: ['pj_nc'] as const[] },
+    condicoes: { operacao: 'interna' as const, tipoDest: ['pj_nc'] as const },
     valoresBase: makeValoresBase(),
     ramificacoes: [{ cenarioId: 'TEST', nome: 'Teste', prioridade: 1 }],
     ...overrides,

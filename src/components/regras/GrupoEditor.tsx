@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ChipEditor } from './ChipEditor.tsx';
-import { Trash2, Plus, Info } from 'lucide-react';
+import { Trash2, Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // --- Constantes para selects ---
@@ -193,10 +193,6 @@ interface GrupoEditorProps {
   onDelete?: () => void;
 }
 
-function emptyRamificacao(): Ramificacao {
-  return { cenarioId: '', nome: '', prioridade: 1 };
-}
-
 export function GrupoEditor({ grupo: initial, onSave, onCancel, onDelete }: GrupoEditorProps) {
   const [grupo, setGrupo] = useState<GrupoRegra>(structuredClone(initial));
 
@@ -218,13 +214,6 @@ export function GrupoEditor({ grupo: initial, onSave, onCancel, onDelete }: Grup
       rams[index] = ram;
       return { ...prev, ramificacoes: rams };
     });
-  }
-
-  function addRamificacao() {
-    setGrupo(prev => ({
-      ...prev,
-      ramificacoes: [...prev.ramificacoes, emptyRamificacao()],
-    }));
   }
 
   function removeRamificacao(index: number) {

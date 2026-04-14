@@ -28,12 +28,6 @@ const dotColors: Record<string, string> = {
   ERRO: 'bg-danger-500',
 };
 
-const severityColor: Record<CrossCheckSeverity, string> = {
-  ok: 'text-success-600',
-  atencao: 'text-warning-600',
-  divergente: 'text-danger-500',
-};
-
 const severityLabelColor: Record<CrossCheckSeverity, string> = {
   ok: 'text-muted-foreground',
   atencao: 'text-warning-700 font-medium',

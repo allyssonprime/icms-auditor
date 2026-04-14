@@ -8,7 +8,7 @@ import { computarCamposDerivados } from './classifier.ts';
 function getValoresVedacao(rule: VedacaoRule, config: AppConfig): string[] {
   if (rule.fonte === 'inline') return rule.valores ?? [];
   if (rule.fonte === 'config' && rule.campoConfig) {
-    return (config as Record<string, unknown>)[rule.campoConfig] as string[] ?? [];
+    return (config as unknown as Record<string, unknown>)[rule.campoConfig] as string[] ?? [];
   }
   return [];
 }

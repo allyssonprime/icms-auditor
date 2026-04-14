@@ -6,9 +6,8 @@ import { simular, type SimuladorParams, type SimuladorResult, type RegimeTributa
 import { formatCurrency, formatPercent, formatNumberBR, parseNumberBR } from '../utils/formatters.ts';
 import { consultarCnpj } from '../engine/cnpjService.ts';
 import { buildCompanySuggestionLabel, findExactCompanyByRazao, getRazaoSuggestions, type CompanyLookupEntry } from '../simulator/companyLookup.ts';
-import { Check, Plus, Trash2, Info, AlertTriangle, Building2, Package, Receipt, DollarSign, Coins, Calculator } from 'lucide-react';
+import { Check, Plus, Trash2, AlertTriangle, Building2, Package, Receipt, DollarSign, Coins, Calculator } from 'lucide-react';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -16,7 +15,6 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 /** Format raw NCM digits into 1234.56.78 pattern */

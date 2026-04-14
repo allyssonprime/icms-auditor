@@ -16,7 +16,6 @@ import { DropZone } from './components/DropZone.tsx';
 import { Dashboard } from './components/Dashboard.tsx';
 
 import { GroupingPanel } from './components/GroupingPanel.tsx';
-import { NfeListView } from './components/NfeListView.tsx';
 import { CnpjLookupPanel } from './components/CnpjLookupPanel.tsx';
 import { CenarioLegend } from './components/CenarioLegend.tsx';
 import { AuditWorkspace } from './components/audit/AuditWorkspace.tsx';
@@ -105,9 +104,9 @@ export default function App() {
   const [discardedByCfop, setDiscardedByCfop] = useState(0);
   const [discardedZero, setDiscardedZero] = useState(0);
   const [discardedDuplicates, setDiscardedDuplicates] = useState(0);
-  const [discardedCanceladas, setDiscardedCanceladas] = useState(0);
-  const [discardedSemTtd, setDiscardedSemTtd] = useState(0);
-  const [discardedEstornos, setDiscardedEstornos] = useState(0);
+  const [, setDiscardedCanceladas] = useState(0);
+  const [, setDiscardedSemTtd] = useState(0);
+  const [, setDiscardedEstornos] = useState(0);
   const [historicoRefreshKey, setHistoricoRefreshKey] = useState(0);
   const [efdData, setEfdData] = useState<EfdData | null>(null);
   const [efdParseError, setEfdParseError] = useState<string | null>(null);

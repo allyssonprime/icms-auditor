@@ -1,5 +1,4 @@
 import type { NfeValidation } from '../types/validation.ts';
-import type { CenarioConfig } from '../types/cenario.ts';
 import type { AppConfig } from '../types/config.ts';
 import { getCenarios } from './cenarios.ts';
 import { getDefaultRegras } from '../data/defaultRegras.ts';

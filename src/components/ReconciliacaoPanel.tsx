@@ -57,6 +57,7 @@ export function ReconciliacaoPanel({ results, regras, config }: ReconciliacaoPan
       const c = config ?? {
         decreto2128: [],
         listaCamex: [],
+        listaCamex210: [],
         listaCobreAco: [],
         listaSN: [],
         listaIndustriais: [],
@@ -140,7 +141,7 @@ export function ReconciliacaoPanel({ results, regras, config }: ReconciliacaoPan
                     )}
                     <TableCell className="px-3 py-2 text-center">
                       {t.temDivergencia && (
-                        <AlertTriangle size={14} className="text-orange-500 inline-block" title="Itens com divergencia neste regime" />
+                        <AlertTriangle size={14} className="text-orange-500 inline-block" aria-label="Itens com divergencia neste regime" />
                       )}
                     </TableCell>
                   </TableRow>

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { RegrasGlobal } from '../../types/regras.ts';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

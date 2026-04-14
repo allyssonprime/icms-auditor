@@ -1,4 +1,4 @@
-import type { EfdC100, EfdC113, EfdC190, EfdE110, EfdCompanyInfo, EfdData, EfdParseResult } from '../types/efd';
+import type { EfdC100, EfdC113, EfdC190, EfdE110, EfdCompanyInfo, EfdParseResult } from '../types/efd';
 
 /**
  * Split a pipe-delimited EFD line into fields.
