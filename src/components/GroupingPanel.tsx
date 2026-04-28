@@ -191,14 +191,19 @@ export function GroupingPanel({
           ))}
           <span className="text-border">|</span>
           <QuickButton
-            label="Precisa acao"
-            onClick={() => onQuickGroup('status', ['ERRO', 'DIVERGENCIA'])}
-            active={filters.status.has('ERRO') && filters.status.has('DIVERGENCIA') && filters.status.size === 2}
+            label="OK"
+            onClick={() => onQuickGroup('status', ['OK'])}
+            active={filters.status.has('OK') && filters.status.size === 1}
           />
           <QuickButton
-            label="Erros"
-            onClick={() => onQuickGroup('status', ['ERRO'])}
-            active={filters.status.has('ERRO') && filters.status.size === 1}
+            label="Info"
+            onClick={() => onQuickGroup('status', ['INFO'])}
+            active={filters.status.has('INFO') && filters.status.size === 1}
+          />
+          <QuickButton
+            label="Avisos"
+            onClick={() => onQuickGroup('status', ['AVISO'])}
+            active={filters.status.has('AVISO') && filters.status.size === 1}
           />
           <QuickButton
             label="Divergencias"
@@ -206,9 +211,9 @@ export function GroupingPanel({
             active={filters.status.has('DIVERGENCIA') && filters.status.size === 1}
           />
           <QuickButton
-            label="Avisos"
-            onClick={() => onQuickGroup('status', ['AVISO'])}
-            active={filters.status.has('AVISO') && filters.status.size === 1}
+            label="Erros"
+            onClick={() => onQuickGroup('status', ['ERRO'])}
+            active={filters.status.has('ERRO') && filters.status.size === 1}
           />
           <span className="text-border">|</span>
           <QuickButton

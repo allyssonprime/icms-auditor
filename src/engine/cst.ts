@@ -31,7 +31,7 @@ export function validarCST(
   if (!origensImportador.includes(orig)) {
     return {
       status: 'AVISO',
-      mensagem: `CST origem ${orig} (${item.cst}): esperado 1 (importacao direta), 6 (sem similar/CAMEX) ou 7 (adq. mercado interno sem similar). Origem ${orig} pode indicar mercadoria nacional.`,
+      mensagem: `CST origem ${orig} não é esperado para importador (cenário ${cenario.id}). Esperado: 1 (importação direta), 6 (CAMEX sem similar) ou 7 (adquirida sem similar). Origem ${orig} pode indicar mercadoria nacional.`,
       regra: 'CST02',
       cenario: cenario.id,
       acao: { tipo: 'verificar_cadastro', campo: 'CST Origem', valorAtual: orig, valorEsperado: '1/6/7', prioridade: 'media' },
@@ -41,7 +41,7 @@ export function validarCST(
   // Alerta: CAMEX via lista NCM mas origem 1 (com similar) — possivel contradicao
   if (isCAMEX && orig === '1') {
     return {
-      status: 'AVISO',
+      status: 'DIVERGENCIA',
       mensagem: `NCM na lista CAMEX mas CST Origem = 1 (com similar nacional). Verificar se a origem deveria ser 6 (sem similar).`,
       regra: 'CST05',
       cenario: cenario.id,
@@ -75,7 +75,7 @@ export function validarCST(
       const aliqEfetiva = item.pICMS * (1 - item.pRedBC / 100);
       return {
         status: 'INFO',
-        mensagem: `CST trib 20 (reducao BC) item ${item.nItem}: aliquota efetiva ${aliqEfetiva.toFixed(2)}% (pICMS ${item.pICMS}% x reducao ${item.pRedBC}%). Carga cenario ${cenario.id}: ${carga.toFixed(2)}%.`,
+        mensagem: `CST 20 (redução de BC) no item ${item.nItem}. Alíquota efetiva ${aliqEfetiva.toFixed(2)}% após redução de ${item.pRedBC}%. Apenas observação — carga do cenário ${cenario.id}: ${carga.toFixed(2)}%.`,
         regra: 'CST04',
         cenario: cenario.id,
         acao: { tipo: 'nenhuma', prioridade: 'baixa' },
@@ -83,7 +83,7 @@ export function validarCST(
     } else {
       return {
         status: 'INFO',
-        mensagem: `CST trib 20 (reducao BC) item ${item.nItem} sem pRedBC declarado ou sem carga efetiva calculavel no cenario ${cenario.id}.`,
+        mensagem: `CST 20 (redução de BC) no item ${item.nItem}, porém sem pRedBC declarado. Apenas observação — cenário ${cenario.id}.`,
         regra: 'CST04',
         cenario: cenario.id,
         acao: { tipo: 'nenhuma', prioridade: 'baixa' },

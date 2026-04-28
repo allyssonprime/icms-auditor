@@ -28,8 +28,8 @@ export function RecoveryEmailPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-[#2B318A] to-[#5A81FA] p-4">
-      <Card className="w-full max-w-[420px] shadow-xl border-0 bg-white/95">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-[420px] shadow-sm border border-border bg-card">
         <CardHeader className="text-center pb-2">
           <CardTitle className="text-xl">Recuperação de senha</CardTitle>
           <CardDescription>
@@ -56,7 +56,7 @@ export function RecoveryEmailPage() {
                 className="w-full"
               />
             </div>
-            <Button type="submit" className="w-full bg-[#2B318A] hover:bg-[#1e2462]" disabled={isSubmitting}>
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? 'Enviando...' : 'Recuperar senha'}
             </Button>
           </form>
@@ -64,7 +64,7 @@ export function RecoveryEmailPage() {
             <button
               type="button"
               onClick={() => setRecoveryScreen(null)}
-              className="text-[#2B318A] font-medium underline underline-offset-2 hover:no-underline"
+              className="text-primary font-medium underline underline-offset-2 hover:no-underline"
             >
               Voltar para o login
             </button>

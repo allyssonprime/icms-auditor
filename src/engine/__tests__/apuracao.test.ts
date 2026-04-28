@@ -2,9 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { buildApuracaoMensal, confrontarContabilidade } from '../apuracao.ts';
 import { validarNfe } from '../validator.ts';
 import { makeNfe, makeItem, makeDest, makeConfig } from './fixtures.ts';
+import type { AppConfig } from '../../types/config.ts';
 
 function validar(nfe: ReturnType<typeof makeNfe>) {
   return validarNfe(nfe, makeConfig());
+}
+
+function validarComConfig(nfe: ReturnType<typeof makeNfe>, config: AppConfig) {
+  return validarNfe(nfe, config);
 }
 
 describe('buildApuracaoMensal', () => {
@@ -69,6 +74,28 @@ describe('buildApuracaoMensal', () => {
       expect(ap.totalFundos).toBeCloseTo(4, 2);
       expect(ap.totalRecolherComFundos).toBeCloseTo(14, 2);
       expect(ap.totalCPApropriado).toBe(30);
+    });
+
+    it('aplica CAMEX 2,10% por CNPJ cadastrado no total principal', () => {
+      const config = makeConfig({
+        listaCamex210: ['11.111.111/0001-11'],
+      });
+      const nfe = makeNfe({
+        dhEmi: '2026-03-01T10:00:00-03:00',
+        dest: makeDest({ cnpj: '11111111000111', uf: 'SC', indIEDest: '1' }),
+        itens: [makeItem({
+          cfop: '5101', cstOrig: '6', cst: '090', pICMS: 12, vBC: 1000, vICMS: 120,
+        })],
+      });
+
+      const ap = buildApuracaoMensal([validarComConfig(nfe, config)], undefined, config);
+
+      expect(ap.totalICMSRecolher).toBeCloseTo(21, 2);
+      expect(ap.liquidoICMSRecolher).toBeCloseTo(21, 2);
+      expect(ap.porCenario[0]?.totalICMSRecolher).toBeCloseTo(21, 2);
+      expect(ap.porCenario[0]?.cargaEfetiva).toBeCloseTo(2.1, 2);
+      expect(ap.porCenario[0]?.refTTD).toBe('1.2.d / 1.13.a');
+      expect(ap.porCenario[0]?.cenarioId).toBe('B2');
     });
   });
 

@@ -3,7 +3,7 @@ import type { CenarioConfig } from '../types/cenario.ts';
 import type { ValidationResult, CrossCheck, CrossCheckSeverity, CnpjInfo } from '../types/validation.ts';
 import type { AppConfig } from '../types/config.ts';
 import type { RegrasConfig } from '../types/regras.ts';
-import { getDefaultRegras } from '../data/defaultRegras.ts';
+import { REGRAS } from '../data/defaultRegras.ts';
 import { getAliquotaInterestadual } from '../data/ufAliquotas.ts';
 
 export interface AliquotaResult {
@@ -246,12 +246,6 @@ function crossChecks880(
 
 // ----- Função principal -----
 
-let _defaultRegras: RegrasConfig | null = null;
-function getDefaults(): RegrasConfig {
-  if (!_defaultRegras) _defaultRegras = getDefaultRegras();
-  return _defaultRegras;
-}
-
 function resolveUfAliquota(uf: string, regras: RegrasConfig): number {
   const ufUpper = uf.toUpperCase();
   const custom = regras.global.ufAliquotas[ufUpper];
@@ -268,7 +262,7 @@ export function validarAliquota(
   cnpjInfoMap?: Map<string, CnpjInfo>,
   regras?: RegrasConfig,
 ): AliquotaResult {
-  const r = regras ?? getDefaults();
+  const r = regras ?? REGRAS;
   const found = item.pICMS;
 
   if (cenario.aliquotasAceitas.length === 0) {
@@ -301,7 +295,7 @@ export function validarAliquota(
     return {
       result: {
         status: 'INFO',
-        mensagem: 'Aliquota 4% valida, mas opcao 10% disponivel (mais credito para o cliente).',
+        mensagem: `Alíquota 4% válida no cenário ${cenario.id}, mas 10% daria mais crédito presumido para o cliente.`,
         regra: 'AL06',
         cenario: cenario.id,
         acao: { tipo: 'nenhuma', prioridade: 'baixa' },
@@ -349,7 +343,7 @@ export function validarAliquota(
       return {
         result: {
           status: 'AVISO',
-          mensagem: `Aliquota ${found}% aceita para cenario ${cenario.id}, porem justificativa somente por Simples Nacional (verificar).`,
+          mensagem: `Alíquota ${found}% aceita no cenário ${cenario.id}, porém justificada somente por destinatário ser Simples Nacional. Verificar outras justificativas (CAMEX, BC reduzida).`,
           regra: 'AL07',
           cenario: cenario.id,
           acao: { tipo: 'verificar_cadastro', campo: 'Simples Nacional', prioridade: 'media' },
@@ -365,7 +359,7 @@ export function validarAliquota(
       return {
         result: {
           status: 'AVISO',
-          mensagem: `Alíquota ${found}% conforme cenário ${cenario.id}, porém sem informação de crédito presumido (verificar).`,
+          mensagem: `Alíquota ${found}% válida no cenário ${cenario.id}, mas item sem crédito presumido declarado (cenário prevê CP). Verificar.`,
           regra: 'AL08',
           cenario: cenario.id,
           acao: { tipo: 'verificar_documento', campo: 'Credito Presumido', prioridade: 'media' },
@@ -408,7 +402,7 @@ export function validarAliquota(
     return {
       result: {
         status: 'INFO',
-        mensagem: `Alíquota ${found}% diferente do cenário ${cenario.id} (esperado ${aceitas.join('% ou ')}%), porém sem crédito presumido — possível não utilização do TTD.`,
+        mensagem: `Alíquota ${found}% diferente do esperado (${aceitas.map(a => `${a}%`).join(', ')}) para o cenário ${cenario.id}, mas sem crédito presumido declarado — possivelmente empresa não aplicou TTD neste item.`,
         regra: 'AL09',
         cenario: cenario.id,
         acao: { tipo: 'nenhuma', prioridade: 'baixa' },
@@ -429,9 +423,9 @@ export function validarAliquota(
       result: {
         status: 'AVISO',
         mensagem:
-          `Alíquota ${found}% destacada com crédito presumido em cenário ${cenario.id} ` +
-          `(que espera ${aceitas.join('% ou ')}%) — regime alternativo do TTD. ` +
-          `Conferir CP declarado via regras CP01–CP04.`,
+          `Alíquota ${found}% (integral) destacada com crédito presumido no cenário ${cenario.id} ` +
+          `(esperada ${aceitas.map(a => `${a}%`).join(', ')}). Regime alternativo do TTD — ` +
+          `contribuinte optou por destacar alíquota nominal em vez da reduzida. Verificar CP.`,
         regra: 'AL10',
         cenario: cenario.id,
         acao: { tipo: 'verificar_documento', campo: 'Credito Presumido', prioridade: 'media' },
@@ -443,10 +437,10 @@ export function validarAliquota(
   return {
     result: {
       status: 'ERRO',
-      mensagem: `Aliquota ${found}% diverge do esperado para cenario ${cenario.id}. Esperado: ${aceitas.join('% ou ')}%.`,
+      mensagem: `Alíquota ${found}% não permitida para este cenário (${cenario.id}). Permitidas: ${aceitas.map(a => `${a}%`).join(', ')}.`,
       regra: 'AL01',
       cenario: cenario.id,
-      acao: { tipo: 'corrigir_nfe', campo: 'pICMS', valorAtual: `${found}%`, valorEsperado: `${aceitas.join('% ou ')}%`, prioridade: 'alta' },
+      acao: { tipo: 'corrigir_nfe', campo: 'pICMS', valorAtual: `${found}%`, valorEsperado: aceitas.map(a => `${a}%`).join(', '), prioridade: 'alta' },
     },
     crossChecks: checks,
   };

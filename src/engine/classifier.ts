@@ -16,7 +16,7 @@ import {
 } from '../types/regras.ts';
 import { isCobreAco } from '../data/cobreAco.ts';
 import { isNaoContribuinte } from './aliquota.ts';
-import { getDefaultRegras } from '../data/defaultRegras.ts';
+import { REGRAS } from '../data/defaultRegras.ts';
 
 // --- Computar campos derivados da NF-e ---
 
@@ -44,7 +44,7 @@ export function computarCamposDerivados(
 
   // CAMEX
   const normalizedNcm = item.ncm.replace(/\./g, '');
-  const isCAMEX = item.cstOrig === '6' || config.listaCamex.some(ncm => {
+  const isCAMEX = item.cstOrig === '6' || item.cstOrig === '7' || config.listaCamex.some(ncm => {
     const camexNorm = ncm.replace(/\./g, '');
     return normalizedNcm.startsWith(camexNorm);
   });
@@ -178,11 +178,6 @@ export function resolverCenario(
 
 // --- Funcao principal (compativel com assinatura anterior) ---
 
-let _defaultRegras: RegrasConfig | null = null;
-function getDefaults(): RegrasConfig {
-  if (!_defaultRegras) _defaultRegras = getDefaultRegras();
-  return _defaultRegras;
-}
 
 export function classificarCenario(
   item: ItemData,
@@ -193,7 +188,7 @@ export function classificarCenario(
   cnpjInfoMap?: Map<string, CnpjInfo>,
 ): string {
   try {
-    const r = regras ?? getDefaults();
+    const r = regras ?? REGRAS;
     const derivados = computarCamposDerivados(item, dest, config, r, aplicacao, cnpjInfoMap);
 
     // DEVOLUCAO: tratamento especial, nao configuravel

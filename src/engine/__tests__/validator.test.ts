@@ -8,7 +8,7 @@ describe('validarNfe', () => {
       dest: makeDest({ uf: 'PR', indIEDest: '1' }),
       itens: [makeItem({
         ncm: '84713019', cfop: '6101', cst: '090', pICMS: 4, vBC: 1000, vICMS: 40,
-        cCredPresumido: 'CP123', pCredPresumido: 3, vCredPresumido: 30,
+        cCredPresumido: 'SC850065', pCredPresumido: 3, vCredPresumido: 30,
       })],
     });
     const config = makeConfig();
@@ -33,7 +33,7 @@ describe('validarNfe', () => {
   it('should flag wrong aliquota', () => {
     const nfe = makeNfe({
       dest: makeDest({ uf: 'PR', indIEDest: '1' }),
-      itens: [makeItem({ ncm: '84713019', cfop: '6101', cst: '090', pICMS: 12, cCredPresumido: 'CP123' })],
+      itens: [makeItem({ ncm: '84713019', cfop: '6101', cst: '090', pICMS: 12, cCredPresumido: 'SC850065' })],
     });
     const config = makeConfig();
     const result = validarNfe(nfe, config);
@@ -67,7 +67,7 @@ describe('validarNfe', () => {
     }
   });
 
-  it('should validate internal SC PF as B7', () => {
+  it('should validate internal SC PF as B7 (com INFO I10 PF sem TTD)', () => {
     const nfe = makeNfe({
       dest: makeDest({ uf: 'SC', cpf: '12345678901', cnpj: undefined, indIEDest: '9' }),
       itens: [makeItem({ ncm: '84713019', cfop: '5102', cst: '000', pICMS: 17, vICMS: 170 })],
@@ -76,7 +76,9 @@ describe('validarNfe', () => {
     const result = validarNfe(nfe, config);
 
     expect(result.itensValidados[0]!.cenario).toBe('B7');
-    expect(result.statusFinal).toBe('OK');
+    // B7 dispara I10 (PF sem TTD — recolhimento integral) → status final INFO
+    expect(result.statusFinal).toBe('INFO');
+    expect(result.itensValidados[0]!.resultados.some(r => r.regra === 'I10')).toBe(true);
   });
 
   it('should handle mixed items (one OK, one ERRO)', () => {
@@ -85,9 +87,9 @@ describe('validarNfe', () => {
       itens: [
         makeItem({
           nItem: '1', ncm: '84713019', cfop: '6101', cst: '090', pICMS: 4,
-          cCredPresumido: 'CP123', pCredPresumido: 3, vCredPresumido: 30,
+          cCredPresumido: 'SC850065', pCredPresumido: 3, vCredPresumido: 30,
         }),
-        makeItem({ nItem: '2', ncm: '84713019', cfop: '6101', cst: '090', pICMS: 12, cCredPresumido: 'CP123' }),
+        makeItem({ nItem: '2', ncm: '84713019', cfop: '6101', cst: '090', pICMS: 12, cCredPresumido: 'SC850065' }),
       ],
     });
     const config = makeConfig();
@@ -184,7 +186,7 @@ describe('validarNfe', () => {
         makeItem({
           nItem: '1', ncm: '84713019', cfop: '6101', cst: '090',
           pICMS: 4, vBC: 1000, vICMS: 40,
-          cCredPresumido: 'CP123', pCredPresumido: 3, vCredPresumido: 30,
+          cCredPresumido: 'SC850065', pCredPresumido: 3, vCredPresumido: 30,
         }),
         makeItem({
           nItem: '2', ncm: '84713019', cfop: '6101', cst: '120',

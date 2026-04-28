@@ -12,7 +12,7 @@ import { validarBaseCalculo, isBcConsistente } from './bcValidation.ts';
 import { validarCreditoPresumido } from './cpValidation.ts';
 import { validarInfoComplementares } from './infCplValidation.ts';
 import { isCobreAco } from '../data/cobreAco.ts';
-import { getDefaultRegras } from '../data/defaultRegras.ts';
+import { REGRAS } from '../data/defaultRegras.ts';
 import { bcIntegral } from '../utils/formatters.ts';
 import { deriveCargaEfetiva, calcularICMSRecolherItem, calcularFundosItem } from './calculoHelpers.ts';
 
@@ -22,12 +22,6 @@ function resolveStatus(results: ValidationResult[]): StatusType {
   if (results.some(r => r.status === 'AVISO')) return 'AVISO';
   if (results.some(r => r.status === 'INFO')) return 'INFO';
   return 'OK';
-}
-
-let _defaultRegras: RegrasConfig | null = null;
-function getDefaults(): RegrasConfig {
-  if (!_defaultRegras) _defaultRegras = getDefaultRegras();
-  return _defaultRegras;
 }
 
 function validarItem(
@@ -54,7 +48,7 @@ function validarItem(
   if (!bloqueado && cenarioId === 'DEVOLUCAO') {
     resultados.push({
       status: 'INFO',
-      mensagem: 'Devolucao detectada. Estornar CP apropriado (item 1.20). Fundos: creditar via DCIP 54.',
+      mensagem: 'Devolução detectada. Estornar crédito presumido (item 1.20). Fundos: creditar via DCIP 54.',
       regra: 'I09',
       cenario: 'DEVOLUCAO',
     });
@@ -67,7 +61,7 @@ function validarItem(
     if (derivados?.isCobreAco) {
       resultados.push({
         status: 'INFO',
-        mensagem: `NCM cobre/aço: recolhimento diferenciado 0,6% (ref. 1.2.a.1).`,
+        mensagem: 'NCM de aço/cobre. Recolhimento ICMS reduzido de 1,0% para 0,6%.',
         regra: 'M01',
         cenario: cenarioId,
       });
@@ -81,7 +75,36 @@ function validarItem(
     // Etapa 5: Validar CFOP
     resultados.push(validarCFOP(item, cenario));
     // Etapa 6: Validar informações complementares (infCpl)
-    resultados.push(...validarInfoComplementares(nfe.infCpl, cenario));
+    resultados.push(...validarInfoComplementares(nfe.infCpl, cenario, item));
+
+    // Etapa 7: Observacoes informativas sobre o cenario
+    // PF_SEM_TTD — pessoa fisica nao usa TTD (recolhimento integral)
+    if (derivados?.tipoDest === 'pf' && cenario.cargaEfetiva < 0) {
+      resultados.push({
+        status: 'INFO',
+        mensagem: 'Destinatário pessoa física. TTD não se aplica — recolhimento integral.',
+        regra: 'I10',
+        cenario: cenarioId,
+      });
+    }
+    // TRANSF — transferencia entre estabelecimentos
+    if (derivados?.cfopMatch === 'transferencia') {
+      resultados.push({
+        status: 'INFO',
+        mensagem: 'Transferência entre estabelecimentos. Sem crédito presumido.',
+        regra: 'I11',
+        cenario: cenarioId,
+      });
+    }
+    // CAMEX_21 — opcao de recolhimento alternativo 2,1% (B2/B2-Industrial apenas)
+    if ((cenarioId === 'B2' || cenarioId === 'B2-Industrial') && Math.abs(item.pICMS - 12) < 0.01) {
+      resultados.push({
+        status: 'INFO',
+        mensagem: 'Cenário CAMEX com opção de recolhimento 2,1% (alternativa ao 3,6%).',
+        regra: 'I12',
+        cenario: cenarioId,
+      });
+    }
   } else if (!bloqueado) {
     // Linha "orfa" — nenhum grupo de regras casou com os campos derivados.
     // Incluir CFOP/operacao/tipoDest na mensagem ajuda a diagnosticar por que
@@ -125,7 +148,7 @@ export function validarNfe(
   cnpjInfoMap?: Map<string, CnpjInfo>,
   regras?: RegrasConfig,
 ): NfeValidation {
-  const r = regras ?? getDefaults();
+  const r = regras ?? REGRAS;
   const cenariosMap = getCenarios(r);
 
   const itensValidados = nfe.itens.map(item => validarItem(nfe, item, config, r, cenariosMap, cnpjInfoMap));

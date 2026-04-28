@@ -2,10 +2,11 @@ import type { NfeValidation } from '../types/validation.ts';
 import type { AppConfig } from '../types/config.ts';
 import type { RegrasConfig } from '../types/regras.ts';
 import { getCenarios } from './cenarios.ts';
-import { getDefaultRegras } from '../data/defaultRegras.ts';
+import { REGRAS } from '../data/defaultRegras.ts';
 import { bcIntegral } from '../utils/formatters.ts';
 import { isCobreAco } from '../data/cobreAco.ts';
-import { deriveCargaEfetiva, calcularICMSRecolherItem, calcularFundosItem } from './calculoHelpers.ts';
+import { deriveCargaEfetiva, calcularFundosItem } from './calculoHelpers.ts';
+import { deriveCargaEfetivaComCamex210, getRefTTDEfetivaComCamex210 } from './camex210.ts';
 
 /**
  * Apuração mensal consolidada — insumo para planilha 7.7/7.8 e para a
@@ -120,7 +121,7 @@ export function buildApuracaoMensal(
   config?: AppConfig,
   periodo?: string,
 ): ApuracaoMensal {
-  const r = regras ?? getDefaultRegras();
+  const r = regras ?? REGRAS;
   const cenariosMap = getCenarios(r);
   const listaCobreAco = config?.listaCobreAco ?? [];
 
@@ -157,14 +158,17 @@ export function buildApuracaoMensal(
       const bc = bcIntegral(iv.item.vBC, iv.item.pRedBC);
       const isCA = isCobreAco(iv.item.ncm, listaCobreAco);
       const cargaEfetiva = cenario
-        ? deriveCargaEfetiva(iv.item.pICMS, cenario, isCA)
+        ? config
+          ? deriveCargaEfetivaComCamex210(iv.item, cenario, isCA, nv.nfe.dest.cnpj, config)
+          : deriveCargaEfetiva(iv.item.pICMS, cenario, isCA)
         : 0;
+      const refTTD = config
+        ? getRefTTDEfetivaComCamex210(iv.item, nv.nfe.dest.cnpj, config, cenario) || iv.cenario
+        : cenario?.refTTD || iv.cenario;
       // Recolher: SEMPRE bcIntegral × cargaEfetiva (regra fiscal — reducao
       // de BC nao reduz a obrigacao de recolhimento). Devolucoes (sem
       // CenarioConfig) usam derivacao por carga sobre bcIntegral.
-      const recolher = cenario
-        ? calcularICMSRecolherItem(iv.item, cenario, isCA)
-        : cargaEfetiva > 0 ? bc * (cargaEfetiva / 100) : 0;
+      const recolher = cargaEfetiva > 0 ? bc * (cargaEfetiva / 100) : 0;
       // Fundos: prioriza o % do cenário (quando definido); devoluções (que
       // não têm CenarioConfig) usam a taxa flat de 0,4% — crédito a estornar.
       const fundosVal = cenario
@@ -201,10 +205,10 @@ export function buildApuracaoMensal(
       totalFundos += fundosVal;
 
       // Breakdown por cenário
-      const key = iv.cenario;
+      const key = `${iv.cenario}|${refTTD}|${cargaEfetiva}`;
       if (!cenarioAcc.has(key)) {
         cenarioAcc.set(key, {
-          refTTD: cenario?.refTTD || key,
+          refTTD,
           descricao: cenario?.nome || key,
           qtdItens: 0,
           nfeChaves: new Set(),
@@ -233,8 +237,8 @@ export function buildApuracaoMensal(
   const liquidoTotal = liquidoICMSRecolher + liquidoFundos;
 
   const porCenario: ApuracaoCenario[] = Array.from(cenarioAcc.entries())
-    .map(([cenarioId, acc]) => ({
-      cenarioId,
+    .map(([key, acc]) => ({
+      cenarioId: key.split('|')[0] || key,
       refTTD: acc.refTTD,
       descricao: acc.descricao,
       qtdItens: acc.qtdItens,

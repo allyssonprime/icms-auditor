@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { AppConfig } from '../types/config.ts';
 import type { CnpjInfo } from '../types/validation.ts';
 import type { EmpresaCadastro } from '../firebase/configService.ts';
@@ -8,6 +8,7 @@ import { consultarCnpj } from '../engine/cnpjService.ts';
 import { buildCompanySuggestionLabel, findExactCompanyByRazao, getRazaoSuggestions, type CompanyLookupEntry } from '../simulator/companyLookup.ts';
 import { Check, Plus, Trash2, AlertTriangle, Building2, Package, Receipt, DollarSign, Coins, Calculator } from 'lucide-react';
 
+
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
 import { cn } from '@/lib/utils';
 
 /** Format raw NCM digits into 1234.56.78 pattern */
@@ -41,7 +43,7 @@ const UF_LIST = [
 ] as const;
 
 const REGIME_OPTIONS: { value: RegimeTributario; label: string }[] = [
-  { value: 'normal', label: 'Lucro Real - TTD 410' },
+  { value: 'normal', label: 'Real/Presumido' },
   { value: 'simples_nacional', label: 'Simples Nacional' },
   { value: 'nao_contribuinte', label: 'Nao Contribuinte' },
 ];
@@ -106,8 +108,8 @@ export function SimuladorPage({ config, regras, empresas, cnpjInfoMap, onCnpjInf
   const [valorDisplay, setValorDisplay] = useState('');
   const [cnpjLoading, setCnpjLoading] = useState(false);
   const [cnpjResolved, setCnpjResolved] = useState(false);
-  const razaoListId = 'simulador-razao-social-list';
-
+  const [razaoDropdownOpen, setRazaoDropdownOpen] = useState(false);
+  const razaoPrevValueRef = useRef('');
   const companyOptions = useMemo<CompanyLookupEntry[]>(() => {
     const byCnpj = new Map<string, CompanyLookupEntry>();
 
@@ -116,14 +118,17 @@ export function SimuladorPage({ config, regras, empresas, cnpjInfoMap, onCnpjInf
       byCnpj.set(empresa.cnpj, {
         cnpj: empresa.cnpj,
         razaoSocial: empresa.razaoSocial.trim(),
+        uf: empresa.uf,
       });
     }
 
     for (const info of cnpjInfoMap?.values() ?? []) {
       if (!info.razaoSocial?.trim()) continue;
+      const prev = byCnpj.get(info.cnpj);
       byCnpj.set(info.cnpj, {
         cnpj: info.cnpj,
         razaoSocial: info.razaoSocial.trim(),
+        uf: info.uf ?? prev?.uf,
       });
     }
 
@@ -175,6 +180,7 @@ export function SimuladorPage({ config, regras, empresas, cnpjInfoMap, onCnpjInf
         destRazaoSocial: info.razaoSocial || prev.destRazaoSocial,
         destRegime: info.simplesOptante === true ? 'simples_nacional' : 'normal',
         isIndustrial: info.isIndustrial,
+        destUf: info.uf ?? prev.destUf,
       }));
     } else {
       setCnpjResolved(false);
@@ -195,6 +201,7 @@ export function SimuladorPage({ config, regras, empresas, cnpjInfoMap, onCnpjInf
           destRazaoSocial: info.razaoSocial || prev.destRazaoSocial,
           destRegime: info.simplesOptante === true ? 'simples_nacional' : 'normal',
           isIndustrial: info.isIndustrial,
+          destUf: info.uf ?? prev.destUf,
         }));
       }
     } finally {
@@ -209,11 +216,13 @@ export function SimuladorPage({ config, regras, empresas, cnpjInfoMap, onCnpjInf
 
     const cnpjInfo = cnpjInfoMap?.get(matched.cnpj);
     setCnpjResolved(Boolean(cnpjInfo));
+    const resolvedUf = cnpjInfo?.uf ?? matched.uf;
     setForm(prev => ({
       ...prev,
       destCnpj: formatCnpjInput(matched.cnpj),
       destRegime: cnpjInfo?.simplesOptante === true ? 'simples_nacional' : prev.destRegime,
       isIndustrial: cnpjInfo?.isIndustrial ?? prev.isIndustrial,
+      destUf: resolvedUf ?? prev.destUf,
     }));
   }, [companyOptions, cnpjInfoMap]);
 
@@ -285,13 +294,13 @@ export function SimuladorPage({ config, regras, empresas, cnpjInfoMap, onCnpjInf
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
+      {/* Page Header — sticky para manter botão visível */}
+      <div className="flex items-center justify-between sticky top-0 z-30 bg-[var(--surface)] -mx-4 sm:-mx-6 lg:-mx-10 px-4 sm:px-6 lg:px-10 py-3 border-b border-[var(--outline-variant)]/10 shadow-sm">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">
             Simulador <span className="text-foreground/40 mx-1">&gt;</span> TTD 410
           </p>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight font-heading">Simulador TTD 410</h1>
+          <h1 className="text-xl font-bold text-foreground tracking-tight font-heading">Simulador TTD 410</h1>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -345,21 +354,41 @@ export function SimuladorPage({ config, regras, empresas, cnpjInfoMap, onCnpjInf
             </div>
           </div>
 
-          <div className="min-w-[240px] flex-1">
+          <div className="min-w-[240px] flex-1 relative">
             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 block">Razao Social</Label>
             <Input
               type="text"
               value={form.destRazaoSocial}
-              onChange={e => handleRazaoSocialChange(e.target.value)}
-              placeholder="Digite para buscar no cadastro"
+              onChange={e => { handleRazaoSocialChange(e.target.value); setRazaoDropdownOpen(true); }}
+              onFocus={(e) => { razaoPrevValueRef.current = e.target.value; setForm(prev => ({ ...prev, destRazaoSocial: '' })); setRazaoDropdownOpen(true); }}
+              onBlur={(e) => { if (!e.target.value.trim() && razaoPrevValueRef.current) { setForm(prev => ({ ...prev, destRazaoSocial: razaoPrevValueRef.current })); } setTimeout(() => setRazaoDropdownOpen(false), 150); }}
+              placeholder="Digite 2+ letras para buscar no cadastro"
               disabled={form.isPessoaFisica}
-              list={razaoListId}
+              autoComplete="off"
             />
-            <datalist id={razaoListId}>
-              {razaoSuggestions.map(option => (
-                <option key={option.cnpj} value={buildCompanySuggestionLabel(option)} />
-              ))}
-            </datalist>
+            {razaoDropdownOpen && form.destRazaoSocial.trim().length >= 2 && razaoSuggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-48 overflow-auto rounded-lg border bg-white shadow-lg">
+                {razaoSuggestions.slice(0, 10).map(option => (
+                  <button
+                    key={option.cnpj}
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-primary/5 border-b border-slate-50 last:border-0"
+                    onMouseDown={() => {
+                      handleRazaoSocialChange(buildCompanySuggestionLabel(option));
+                      setRazaoDropdownOpen(false);
+                    }}
+                  >
+                    <span className="font-medium text-foreground">{option.razaoSocial}</span>
+                    <span className="text-[10px] text-muted-foreground ml-2 font-mono">{option.cnpj}</span>
+                  </button>
+                ))}
+                {razaoSuggestions.length > 10 && (
+                  <div className="px-3 py-1.5 text-[10px] text-muted-foreground text-center">
+                    +{razaoSuggestions.length - 10} resultados — refine a busca
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="w-[160px]">

@@ -40,8 +40,8 @@ export function RecoveryChangePasswordPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-[#2B318A] to-[#5A81FA] p-4">
-        <Card className="w-full max-w-[420px] shadow-xl border-0 bg-white/95">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-[420px] shadow-sm border border-border bg-card">
           <CardHeader className="text-center pb-2">
             <CardTitle className="text-xl text-green-700">Senha redefinida</CardTitle>
             <CardDescription>
@@ -51,7 +51,7 @@ export function RecoveryChangePasswordPage() {
           <CardContent>
             <Button
               type="button"
-              className="w-full bg-[#2B318A] hover:bg-[#1e2462]"
+              className="w-full"
               onClick={() => setRecoveryScreen(null)}
             >
               Ir para o login
@@ -66,8 +66,8 @@ export function RecoveryChangePasswordPage() {
   const passwordsMismatch = newPasswordConfirm.length > 0 && newPassword !== newPasswordConfirm;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-[#2B318A] to-[#5A81FA] p-4">
-      <Card className="w-full max-w-[420px] shadow-xl border-0 bg-white/95">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-[420px] shadow-sm border border-border bg-card">
         <CardHeader className="text-center pb-2">
           <CardTitle className="text-xl">Recuperação de senha</CardTitle>
           <CardDescription>
@@ -116,7 +116,7 @@ export function RecoveryChangePasswordPage() {
             </div>
             <Button
               type="submit"
-              className="w-full bg-[#2B318A] hover:bg-[#1e2462]"
+              className="w-full"
               disabled={
                 newPassword.length < 6 ||
                 !passwordsMatch ||
@@ -130,7 +130,7 @@ export function RecoveryChangePasswordPage() {
             <button
               type="button"
               onClick={() => setRecoveryScreen('code')}
-              className="text-[#2B318A] font-medium underline underline-offset-2 hover:no-underline"
+              className="text-primary font-medium underline underline-offset-2 hover:no-underline"
             >
               Voltar
             </button>
@@ -138,7 +138,7 @@ export function RecoveryChangePasswordPage() {
             <button
               type="button"
               onClick={() => setRecoveryScreen(null)}
-              className="text-[#2B318A] font-medium underline underline-offset-2 hover:no-underline"
+              className="text-primary font-medium underline underline-offset-2 hover:no-underline"
             >
               Login
             </button>

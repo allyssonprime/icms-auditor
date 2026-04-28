@@ -3,18 +3,19 @@ import { simular } from '../index.ts';
 import type { SimuladorParams } from '../index.ts';
 import type { AppConfig } from '../../types/config.ts';
 import type { RegrasConfig } from '../../types/regras.ts';
+import { getDefaultRegras } from '../../data/defaultRegras.ts';
 
 function makeAppConfig(): AppConfig {
   return {
     decreto2128: [],
     listaCamex: [],
-    listaCamex210: [],
     listaCobreAco: [],
     listaSN: [],
     listaIndustriais: [],
     listaCD: [],
     listaVedacao25a: [],
     listaVedacao25b: [],
+    listaCamex210: [],
     ufAliquotas: {},
     aliquotasInternasValidas: [12, 17],
   };
@@ -139,6 +140,63 @@ describe('simular()', () => {
     };
     const result = simular(params, makeAppConfig(), makeRegrasComPF());
     expect(result.creditoPresumido).toBe(0);
+  });
+
+  it('B3 industrial SEM aplicacao → destaca 4% (default TTD 410, 10% opcional)', () => {
+    const regras = getDefaultRegras();
+    const config: AppConfig = {
+      decreto2128: [],
+      listaCamex: [],
+      listaCobreAco: [],
+      listaSN: [],
+      listaIndustriais: ['12345678000199'],
+      listaCD: [],
+      listaVedacao25a: [],
+      listaVedacao25b: [],
+      listaCamex210: [],
+      ufAliquotas: {},
+      aliquotasInternasValidas: [12, 17],
+    };
+    const params: SimuladorParams = {
+      destUf: 'SC',
+      destRegime: 'normal',
+      destCnpj: '12345678000199',
+      ncm: '8471.30.19',
+      valorOperacao: 1000,
+      isIndustrial: true,
+      // aplicacao: undefined → catch-all B3, default deve ser 4%
+    };
+    const result = simular(params, config, regras);
+    expect(result.cenarioClassificado).toBe('B3');
+    expect(result.aliquotaDestacada).toBe(4);
+  });
+
+  it('B3 industrial COM aplicacao=industrializacao → destaca 10%', () => {
+    const regras = getDefaultRegras();
+    const config: AppConfig = {
+      decreto2128: [],
+      listaCamex: [],
+      listaCobreAco: [],
+      listaSN: [],
+      listaIndustriais: ['12345678000199'],
+      listaCD: [],
+      listaVedacao25a: [],
+      listaVedacao25b: [],
+      listaCamex210: [],
+      ufAliquotas: {},
+      aliquotasInternasValidas: [12, 17],
+    };
+    const params: SimuladorParams = {
+      destUf: 'SC',
+      destRegime: 'normal',
+      destCnpj: '12345678000199',
+      ncm: '8471.30.19',
+      valorOperacao: 1000,
+      isIndustrial: true,
+      aplicacao: 'industrializacao',
+    };
+    const result = simular(params, config, regras);
+    expect(result.aliquotaDestacada).toBe(10);
   });
 
   it('retorna DESCONHECIDO quando nenhum grupo casa', () => {

@@ -1,11 +1,13 @@
 import type { NfeValidation } from '../types/validation.ts';
+
 import type { AppConfig } from '../types/config.ts';
 import { getCenarios } from './cenarios.ts';
-import { getDefaultRegras } from '../data/defaultRegras.ts';
+import { REGRAS } from '../data/defaultRegras.ts';
 import type { RegrasConfig } from '../types/regras.ts';
 import { bcIntegral } from '../utils/formatters.ts';
 import { isCobreAco } from '../data/cobreAco.ts';
-import { deriveCargaEfetiva, calcularICMSRecolherItem, calcularFundosItem } from './calculoHelpers.ts';
+import { deriveCargaEfetiva, calcularFundosItem } from './calculoHelpers.ts';
+import { deriveCargaEfetivaComCamex210, getRefTTDEfetivaComCamex210, isItemCAMEX } from './camex210.ts';
 
 export interface ReconciliacaoTTD {
   refTTD: string;
@@ -52,7 +54,7 @@ export function buildReconciliacao(
   regras?: RegrasConfig,
   config?: AppConfig,
 ): ReconciliacaoResult {
-  const r = regras ?? getDefaultRegras();
+  const r = regras ?? REGRAS;
   const cenariosMap = getCenarios(r);
   const listaCobreAco = config?.listaCobreAco ?? [];
 
@@ -83,26 +85,28 @@ export function buildReconciliacao(
   for (const nv of results) {
     for (const iv of nv.itensValidados) {
       const cenario = cenariosMap[iv.cenario];
-      const refTTD = cenario?.refTTD || iv.cenario;
+      const refTTD = config
+        ? getRefTTDEfetivaComCamex210(iv.item, nv.nfe.dest.cnpj, config, cenario) || iv.cenario
+        : cenario?.refTTD || iv.cenario;
       const descricao = cenario?.nome || iv.cenario;
       const isCA = isCobreAco(iv.item.ncm, listaCobreAco);
       // Deriva carga efetiva da aliquota real (corrige casos em que o cenario
       // classificado nao contempla o pICMS destacado — ex.: pICMS=10 em B1).
       const cargaEfetiva = cenario
-        ? deriveCargaEfetiva(iv.item.pICMS, cenario, isCA)
+        ? config
+          ? deriveCargaEfetivaComCamex210(iv.item, cenario, isCA, nv.nfe.dest.cnpj, config)
+          : deriveCargaEfetiva(iv.item.pICMS, cenario, isCA)
         : 0;
       const bc = bcIntegral(iv.item.vBC, iv.item.pRedBC);
       // Recolher/fundos: centraliza em calculoHelpers. ICMS a recolher e
       // fundos sao SEMPRE calculados sobre a BC integral (mesmo quando ha
       // pRedBC > 0 — a reducao de BC nao reduz a obrigacao de recolhimento).
       // Devolucoes (sem CenarioConfig) usam derivacao por carga.
-      const recolher = cenario
-        ? calcularICMSRecolherItem(iv.item, cenario, isCA)
-        : cargaEfetiva > 0 ? bc * (cargaEfetiva / 100) : 0;
+      const recolher = cargaEfetiva > 0 ? bc * (cargaEfetiva / 100) : 0;
       const fundosVal = cenario ? calcularFundosItem(iv.item, cenario) : 0;
       // Alternativa CAMEX: itens CAMEX com aliquota >= 7% podem recolher 2,1%
       // sobre a BC integral.
-      const itemIsCAMEX = !!cenario?.isCAMEX && iv.item.pICMS >= 7;
+      const itemIsCAMEX = !!config && isItemCAMEX(iv.item, config, cenario) && iv.item.pICMS >= 7;
       const recolher21 = itemIsCAMEX ? bc * (2.1 / 100) : recolher;
 
       const hasDivergencia = iv.statusFinal === 'ERRO' || iv.statusFinal === 'DIVERGENCIA';

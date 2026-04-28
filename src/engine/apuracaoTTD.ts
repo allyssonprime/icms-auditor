@@ -16,7 +16,7 @@ import type { AppConfig } from '../types/config.ts';
 import type { RegrasConfig } from '../types/regras.ts';
 import type { CenarioConfig } from '../types/cenario.ts';
 import { getCenarios } from './cenarios.ts';
-import { getDefaultRegras } from '../data/defaultRegras.ts';
+import { REGRAS } from '../data/defaultRegras.ts';
 import { bcIntegral } from '../utils/formatters.ts';
 import { isCobreAco } from '../data/cobreAco.ts';
 import { deriveCargaEfetiva } from './calculoHelpers.ts';
@@ -77,6 +77,8 @@ export interface ApuracaoLinha {
   vNF: number;
   /** NCMs presentes nesta linha — usado para overrides "por par" */
   ncms: string[];
+  /** Referência de processo (ex.: PRI1234) extraída de infCpl/infAdFisco. Vazio quando ausente. */
+  processoRef: string;
 }
 
 export interface ApuracaoSubgrupo {
@@ -278,6 +280,15 @@ interface LinhaAcumulada {
   pRedBCMaximo: number;
   cargaEfetivaUsada: number;
   origemCAMEXAgregada?: CamexOrigem;
+  processoRef: string;
+}
+
+const PROCESSO_REF_RE = /\bPRI[A-Z0-9-]+\b/i;
+
+export function extrairProcessoRef(infCpl: string | undefined): string {
+  if (!infCpl) return '';
+  const m = infCpl.match(PROCESSO_REF_RE);
+  return m ? m[0].toUpperCase() : '';
 }
 
 function linhaKey(
@@ -326,7 +337,7 @@ export function buildApuracaoTTD(
   overrides: CamexOverrideMap,
   periodo?: string,
 ): ApuracaoTTDResult {
-  const r = regras ?? getDefaultRegras();
+  const r = regras ?? REGRAS;
   const cenariosMap = getCenarios(r);
 
   // Filtro por período (se informado)
@@ -392,6 +403,7 @@ export function buildApuracaoTTD(
           pRedBCMaximo: 0,
           cargaEfetivaUsada: carga,
           origemCAMEXAgregada: origemCAMEX,
+          processoRef: extrairProcessoRef(nv.nfe.infCpl),
         };
         acc.set(key, linha);
       }
@@ -443,6 +455,7 @@ export function buildApuracaoTTD(
       destNome: l.destNome,
       vNF: l.vNF,
       ncms: Array.from(l.ncmsSet).sort(),
+      processoRef: l.processoRef,
     };
   });
 

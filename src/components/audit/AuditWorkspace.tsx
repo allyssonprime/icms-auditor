@@ -71,7 +71,7 @@ function matchesFilters(v: NfeValidation, filters: ActiveFilters, cnpjInfoMap?: 
 }
 
 export function AuditWorkspace({ results, filters, cnpjInfoMap, regras }: AuditWorkspaceProps) {
-  const [selectedNfIdx, setSelectedNfIdx] = useState<number | null>(null);
+  const [selectedNf, setSelectedNf] = useState<NfeValidation | null>(null);
   const [selectedItemIdx, setSelectedItemIdx] = useState<number | null>(null);
 
   const filtered = useMemo(
@@ -79,12 +79,13 @@ export function AuditWorkspace({ results, filters, cnpjInfoMap, regras }: AuditW
     [results, filters, cnpjInfoMap],
   );
 
-  const selectedNf = selectedNfIdx !== null ? filtered[selectedNfIdx] : null;
-  const selectedItem = selectedNf && selectedItemIdx !== null ? selectedNf.itensValidados[selectedItemIdx] : null;
+  // Clear selection if the selected NF is no longer in filtered list
+  const effectiveSelectedNf = selectedNf && filtered.includes(selectedNf) ? selectedNf : null;
+  const selectedItem = effectiveSelectedNf && selectedItemIdx !== null ? effectiveSelectedNf.itensValidados[selectedItemIdx] : null;
 
-  const handleNfSelect = (idx: number) => {
-    setSelectedNfIdx(idx);
-    setSelectedItemIdx(null); // Reset item selection when NF changes
+  const handleNfSelect = (nfe: NfeValidation) => {
+    setSelectedNf(nfe);
+    setSelectedItemIdx(null);
   };
 
   // Active filter chips
@@ -115,13 +116,13 @@ export function AuditWorkspace({ results, filters, cnpjInfoMap, regras }: AuditW
         <AuditLedger
           results={filtered}
           cnpjInfoMap={cnpjInfoMap}
-          selectedIdx={selectedNfIdx}
+          selectedNf={effectiveSelectedNf}
           onSelect={handleNfSelect}
         />
       </div>
 
       {/* Detail Split Pane */}
-      <div className="h-72 grid grid-cols-12 gap-3 shrink-0">
+      <div className="h-96 grid grid-cols-12 gap-3 shrink-0">
         <div className="col-span-8 bg-white rounded-lg border border-[var(--outline-variant)]/15 overflow-hidden shadow-[0_12px_32px_-4px_rgba(19,27,46,0.08)]">
           <InvoiceItemsTable
             items={selectedNf?.itensValidados ?? []}

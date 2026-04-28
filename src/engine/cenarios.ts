@@ -1,6 +1,6 @@
 import type { CenarioConfig } from '../types/cenario.ts';
 import { mergeValores, type RegrasConfig } from '../types/regras.ts';
-import { getDefaultRegras } from '../data/defaultRegras.ts';
+import { REGRAS } from '../data/defaultRegras.ts';
 
 /** Expande todos os grupos de regras em um Record<cenarioId, CenarioConfig> */
 export function getCenarios(regras: RegrasConfig): Record<string, CenarioConfig> {
@@ -36,4 +36,4 @@ export function getCenarios(regras: RegrasConfig): Record<string, CenarioConfig>
 }
 
 /** Cenarios expandidos a partir dos defaults — compatibilidade com imports existentes */
-export const CENARIOS: Record<string, CenarioConfig> = getCenarios(getDefaultRegras());
+export const CENARIOS: Record<string, CenarioConfig> = getCenarios(REGRAS);

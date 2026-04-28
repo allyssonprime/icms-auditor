@@ -15,8 +15,8 @@ export function AuthGate({ children }: AuthGateProps) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-[#2B318A] to-[#5A81FA]">
-        <div className="text-white text-lg">Carregando...</div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-foreground text-lg">Carregando...</div>
       </div>
     );
   }

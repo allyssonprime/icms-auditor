@@ -42,12 +42,12 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-[#2B318A] to-[#5A81FA] p-4">
-      <Card className="w-full max-w-[420px] shadow-xl border-0 bg-white/95">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+      <div className="mb-8">
+        <img src="/prime-logo-light-bg.png" alt="Prime Internacional" className="h-11 w-auto object-contain" />
+      </div>
+      <Card className="w-full max-w-[420px] shadow-sm border border-border bg-card">
         <CardHeader className="text-center pb-2">
-          <div className="flex justify-center mb-4">
-            <img src="/icone-azul.png" alt="Prime" className="w-20 h-20 object-contain" />
-          </div>
           <CardTitle className="text-xl">Seja bem-vindo!</CardTitle>
           <CardDescription>Digite seus dados para continuar.</CardDescription>
         </CardHeader>
@@ -84,7 +84,7 @@ export function LoginPage() {
                 className="w-full"
               />
             </div>
-            <Button type="submit" className="w-full bg-[#2B318A] hover:bg-[#1e2462]" disabled={isSubmitting}>
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? 'Entrando...' : 'ENTRAR'}
             </Button>
           </form>
@@ -93,15 +93,15 @@ export function LoginPage() {
             <button
               type="button"
               onClick={() => setRecoveryScreen('email')}
-              className="text-[#2B318A] font-medium underline underline-offset-2 hover:no-underline"
+              className="text-primary font-medium underline underline-offset-2 hover:no-underline"
             >
               Clique aqui para recuperar
             </button>
           </p>
         </CardContent>
       </Card>
-      <p className="mt-6 text-xs text-white/80 text-center">
-        Copyright © {new Date().getFullYear()} · PRIME NF-e Auditor
+      <p className="mt-6 text-xs text-muted-foreground text-center">
+        © {new Date().getFullYear()} · Prime Internacional · PRIME NF-e Auditor
       </p>
     </div>
   );

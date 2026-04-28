@@ -6,6 +6,7 @@ import { isNaoContribuinte } from '../engine/aliquota.ts';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { RefMono } from '@/components/ui/ref-mono';
 import { cn } from '@/lib/utils';
 import type { RegrasConfig } from '../types/regras.ts';
 
@@ -125,7 +126,7 @@ export function NfeCard({ validation, cnpjInfoMap, regras }: NfeCardProps) {
               <span>{nfe.dest.indIEDest} ({nfe.dest.indIEDest === '1' ? 'Contrib.' : nfe.dest.indIEDest === '2' ? 'Isento' : nfe.dest.indIEDest === '9' ? 'NC' : 'Outro'})</span>
               <span className="text-border font-sans">&middot;</span>
               <span className="font-sans font-medium text-foreground">Chave:</span>
-              <span className="truncate max-w-[280px]">{nfe.chaveAcesso}</span>
+              <RefMono className="truncate max-w-[280px]">{nfe.chaveAcesso}</RefMono>
               <span className="text-border font-sans">&middot;</span>
               <span className="font-sans font-medium text-foreground">Nat.Op:</span>
               <span className="font-sans">{nfe.natOp}</span>

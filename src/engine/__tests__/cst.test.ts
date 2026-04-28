@@ -98,4 +98,25 @@ describe('validarCST', () => {
     expect(result.status).toBe('INFO');
     expect(result.regra).toBe('CST04');
   });
+
+  // === CST05: CAMEX + origem 1 ===
+
+  it('CST05: origem 1 em cenario CAMEX → DIVERGENCIA', () => {
+    const item = makeItem({ cstOrig: '1', cst: '190' });
+    const result = validarCST(item, CENARIOS['B2']!, true);
+    expect(result.status).toBe('DIVERGENCIA');
+    expect(result.regra).toBe('CST05');
+  });
+
+  it('CST01: origem 6 em cenario CAMEX → OK', () => {
+    const item = makeItem({ cstOrig: '6', cst: '690' });
+    const result = validarCST(item, CENARIOS['B2']!, true);
+    expect(result.status).toBe('OK');
+  });
+
+  it('CST01: origem 7 em cenario CAMEX → OK', () => {
+    const item = makeItem({ cstOrig: '7', cst: '790' });
+    const result = validarCST(item, CENARIOS['B2']!, true);
+    expect(result.status).toBe('OK');
+  });
 });

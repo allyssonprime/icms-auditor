@@ -2,7 +2,7 @@ import type { ItemData, NfeData } from '../types/nfe.ts';
 import type { ValidationResult } from '../types/validation.ts';
 import type { AppConfig } from '../types/config.ts';
 import type { RegrasConfig, VedacaoRule, CondicaoVedacao, CamposDerivados } from '../types/regras.ts';
-import { getDefaultRegras } from '../data/defaultRegras.ts';
+import { REGRAS } from '../data/defaultRegras.ts';
 import { computarCamposDerivados } from './classifier.ts';
 
 function getValoresVedacao(rule: VedacaoRule, config: AppConfig): string[] {
@@ -106,19 +106,13 @@ function avaliarVedacaoCondicao(
   return null;
 }
 
-let _defaultRegras: RegrasConfig | null = null;
-function getDefaults(): RegrasConfig {
-  if (!_defaultRegras) _defaultRegras = getDefaultRegras();
-  return _defaultRegras;
-}
-
 export function verificarVedacoes(
   item: ItemData,
   nfe: NfeData,
   config: AppConfig,
   regras?: RegrasConfig,
 ): ValidationResult[] {
-  const r = regras ?? getDefaults();
+  const r = regras ?? REGRAS;
   const results: ValidationResult[] = [];
 
   for (const rule of r.vedacoes) {

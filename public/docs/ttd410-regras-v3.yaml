@@ -1,0 +1,620 @@
+# ============================================================
+# TTD 410 — Regras de Auditoria ICMS v3.2 (DEFINITIVO)
+# Prime Internacional (CNPJ 08.214.494/0001-19 e /0003-80)
+# ============================================================
+# Paradigma: ALÍQUOTAS PERMITIDAS (lista), não alíquota esperada
+# Engine: first-match-wins — vedações primeiro, específicas depois
+# Erro = alíquota destacada NÃO está na lista de permitidas
+# ============================================================
+
+meta:
+  versao: "3.2"
+  base_legal: "TTD 410 — Termo de Concessão 245000003024507"
+  fase: "2a_fase"
+  fundos_pct: 0.4
+  difal: "fora_do_escopo"
+  data_atualizacao: "2026-04-15"  # B3_GERAL corrigido para [4, 10]
+
+# ============================================================
+# VEDAÇÕES (checar ANTES de qualquer cenário)
+# ============================================================
+vedacoes:
+
+  - id: V01
+    descricao: "NCM no Decreto 2.128/2009"
+    filtro: ncm_decreto_2128
+    permitidas: []
+    erro: "TTD proibido para esta NCM (Decreto 2.128/2009)"
+    ref_ttd: "2.2.a"
+
+  - id: V01-EXC
+    descricao: "Exceção V01: interna SC com alíq >= 10%"
+    filtro: ncm_decreto_2128 AND operacao=INTERNA AND aliq>=10
+    tipo: AVISO
+    erro: "NCM Decreto 2.128 mas alíquota >= 10% — possível autorização específica"
+    ref_ttd: "2.2.a"
+
+# Vedações 2.5.a/b cobertas por B9/B10 via listas de CNPJs
+# Mercadoria usada (2.2.b / CFOP 5922/6922) não identificável via XML
+
+# ============================================================
+# SAÍDAS INTERESTADUAIS (SC → Outra UF)
+# ============================================================
+regras_interestaduais:
+
+  - id: A1
+    camex: false
+    destinatario: [CONTRIBUINTE, INDUSTRIA, SIMPLES]
+    aplicacao: "*"
+    permitidas: [4]
+    carga_efetiva: 1.0
+    fundos: 0.4
+    cp: true
+    obs: "Regra geral interestadual. Res SF 13/2012"
+    erro: "Alíquota ≠ 4%"
+    ref_ttd: "1.2.a.2"
+
+  - id: A2
+    camex: true
+    destinatario: [CONTRIBUINTE, INDUSTRIA, SIMPLES]
+    aplicacao: "*"
+    permitidas: [12, 7]
+    carga_efetiva: 2.1  # padrão CAMEX interestadual p/ contribuinte
+    fundos: 0.4
+    cp: true
+    obs: "CAMEX interestadual contribuinte. 12% Sul/SE, 7% demais. Carga 2,1% padrão"
+    erro: "Alíquota = 4%"
+    ref_ttd: "1.2.b.2 + 1.2.c"
+
+  - id: A4
+    camex: false
+    destinatario: [NAO_CONTRIBUINTE]
+    aplicacao: "*"
+    permitidas: [4]
+    carga_efetiva: 1.0
+    fundos: 0.4
+    cp: true
+    obs: "4% interestadual. DIFAL fora do escopo"
+    erro: "Alíquota ≠ 4%"
+    ref_ttd: "1.2.a + 1.25"
+
+  - id: A5
+    camex: true
+    destinatario: [NAO_CONTRIBUINTE]
+    aplicacao: "*"
+    permitidas: [12, 7]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    obs: "CAMEX + não contrib interestadual. DIFAL fora do escopo"
+    erro: "Alíquota = 4%"
+    ref_ttd: "1.2.b.3"
+
+  - id: A6
+    camex: false
+    destinatario: [PESSOA_FISICA]
+    aplicacao: "*"
+    permitidas: [4]
+    carga_efetiva: 1.0
+    fundos: 0.4
+    cp: true
+    obs: "PF interestadual. DIFAL fora do escopo"
+    erro: "Alíquota ≠ 4%"
+    ref_ttd: "1.2.a + 1.25"
+
+  - id: A7
+    camex: true
+    destinatario: [PESSOA_FISICA]
+    aplicacao: "*"
+    permitidas: [12, 7]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    obs: "CAMEX + PF interestadual. DIFAL fora do escopo"
+    erro: "Alíquota = 4%"
+    ref_ttd: "1.2.b.3"
+
+  - id: A9
+    camex: "*"
+    destinatario: [FILIAL_OUTRA_UF]
+    filtro_cfop: [6152, 6155]
+    aplicacao: "*"
+    permitidas: [4, 12, 7]
+    carga_efetiva: 1.0
+    fundos: 0.4
+    cp: true
+    obs: "Transferência interestadual. Mesmas alíquotas que venda"
+    erro: "Alíquota não é 4%, 12% ou 7%"
+    ref_ttd: "1.6"
+
+# ============================================================
+# SAÍDAS INTERNAS SEM CAMEX (SC → SC)
+# ============================================================
+regras_internas_sem_camex:
+
+  # --- B1: Contribuinte Normal ---
+  - id: B1
+    camex: false
+    destinatario: [CONTRIBUINTE]
+    aplicacao: "*"  # revenda, uso/consumo, ativo, geral — tudo 4%
+    permitidas: [4]
+    carga_efetiva: 1.0
+    fundos: 0.4
+    cp: true
+    diferimento: true
+    obs: "Regra geral interna. Todas as aplicações = 4%"
+    erro: "Alíquota ≠ 4%"
+    ref_ttd: "1.2.a + 1.13.c"
+
+  # --- B3: Contribuinte Industrial ---
+  - id: B3_REVENDA
+    camex: false
+    destinatario: [INDUSTRIA]
+    aplicacao: REVENDA
+    permitidas: [4]
+    carga_efetiva: 1.0
+    fundos: 0.4
+    cp: true
+    diferimento: true
+    obs: "Indústria comprando p/ revenda"
+    erro: "Alíquota ≠ 4%"
+    ref_ttd: "1.2.a"
+
+  - id: B3_INDUSTRIALIZACAO
+    camex: false
+    destinatario: [INDUSTRIA]
+    aplicacao: INDUSTRIALIZACAO
+    permitidas: [4, 10]
+    carga_efetiva_por_aliq:
+      4: 1.0
+      10: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: true
+    obs: "10% se MP c/ mudança NCM para destinatário indústria. 4% também aceito"
+    erro: "Alíquota ≠ 4% e ≠ 10%"
+    ref_ttd: "1.2.a + 1.2.e"
+
+  - id: B3_USO_CONSUMO
+    camex: false
+    destinatario: [INDUSTRIA]
+    aplicacao: USO_CONSUMO_ATIVO
+    permitidas: [4]
+    carga_efetiva: 1.0
+    fundos: 0.4
+    cp: true
+    diferimento: true
+    obs: "Indústria comprando p/ uso/consumo/ativo"
+    erro: "Alíquota ≠ 4%"
+    ref_ttd: "1.2.a"
+
+  - id: B3_GERAL
+    camex: false
+    destinatario: [INDUSTRIA]
+    aplicacao: GERAL
+    permitidas: [4, 10]
+    carga_efetiva_por_aliq:
+      4: 1.0
+      10: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: true
+    obs: "CNPJ industrial mas aplicação desconhecida → aceita 4% e 10%. Não gerar falso positivo"
+    erro: "Alíquota ≠ 4% e ≠ 10%"
+    ref_ttd: "1.2.a + 1.2.e"
+
+  # --- B4: Simples Nacional COM ST ---
+  - id: B4
+    camex: false
+    destinatario: [SIMPLES]
+    st: true
+    aplicacao: "*"
+    permitidas: [4]
+    carga_efetiva: 1.0
+    fundos: 0.4
+    cp: true
+    diferimento: false
+    obs: "Mesmo tratamento contribuinte normal. ST à parte"
+    erro: "Alíquota ≠ 4%"
+    ref_ttd: "1.2.a + 1.14.a"
+
+  # --- B5: Simples Nacional SEM ST ---
+  - id: B5_REVENDA
+    camex: false
+    destinatario: [SIMPLES]
+    st: false
+    aplicacao: REVENDA
+    permitidas: [12]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: false
+    obs: "SN sem ST, revenda = 12%"
+    erro: "Alíquota ≠ 12%"
+    ref_ttd: "1.14.a"
+
+  - id: B5_INDUSTRIALIZACAO
+    camex: false
+    destinatario: [SIMPLES]
+    st: false
+    aplicacao: INDUSTRIALIZACAO
+    permitidas: [12]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: false
+    obs: "SN sem ST, industrialização = 12%"
+    erro: "Alíquota ≠ 12%"
+    ref_ttd: "1.14.a"
+
+  - id: B5_USO_CONSUMO
+    camex: false
+    destinatario: [SIMPLES]
+    st: false
+    aplicacao: USO_CONSUMO_ATIVO
+    permitidas: [17]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: false
+    obs: "SN sem ST, uso/consumo/ativo = 17%"
+    erro: "Alíquota ≠ 17%"
+    ref_ttd: "1.14.a"
+
+  - id: B5_GERAL
+    camex: false
+    destinatario: [SIMPLES]
+    st: false
+    aplicacao: GERAL
+    permitidas: [17]
+    alternativas: [12, 25]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: false
+    obs: "Padrão 17%. Aceita 12% (revenda/ind) e 25% (produtos específicos). Simulador = 17%"
+    erro: "Alíquota = 4% (diferimento indevido)"
+    ref_ttd: "1.14.a"
+
+  # --- B6: PJ Não Contribuinte ---
+  - id: B6
+    camex: false
+    destinatario: [NAO_CONTRIBUINTE]
+    aplicacao: "*"
+    permitidas: [17]
+    alternativas: [25]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: false
+    obs: "Alíquota interna conforme produto. Padrão 17%"
+    erro: "Alíquota = 4% (diferimento indevido)"
+    ref_ttd: "1.14.b"
+
+  # --- B7: Pessoa Física ---
+  - id: B7
+    camex: false
+    destinatario: [PESSOA_FISICA]
+    aplicacao: "*"
+    permitidas: [17]
+    alternativas: [25]
+    carga_efetiva: -1  # integral
+    fundos: 0
+    cp: false
+    diferimento: false
+    obs: "SEM TTD. Recolhimento integral = destaque. Sem CP, sem Fundos"
+    erro: "Qualquer uso de CP ou diferimento"
+    ref_ttd: "2.1.c.3"
+
+# ============================================================
+# SAÍDAS INTERNAS COM CAMEX (SC → SC)
+# ============================================================
+regras_internas_com_camex:
+
+  # --- B2: Contribuinte Normal CAMEX ---
+  - id: B2_REVENDA
+    camex: true
+    destinatario: [CONTRIBUINTE]
+    aplicacao: REVENDA
+    permitidas: [12]
+    carga_efetiva: 3.6
+    carga_alternativa: 2.1  # opção 2,1% com complemento pelo adquirente
+    fundos: 0.4
+    cp: true
+    diferimento: true
+    obs: "CAMEX 12%. Recolhimento 3,6% padrão ou 2,1% (alt com complemento 1,5%)"
+    erro: "Alíquota ≠ 12%"
+    ref_ttd: "1.2.b.2 + 1.2.d"
+
+  - id: B2_USO_CONSUMO
+    camex: true
+    destinatario: [CONTRIBUINTE]
+    aplicacao: USO_CONSUMO_ATIVO
+    permitidas: [12]
+    carga_efetiva: 3.6  # sem alternativa 2,1% para uso/consumo
+    fundos: 0.4
+    cp: true
+    diferimento: true
+    obs: "CAMEX 12%. Somente 3,6% (2,1% não se aplica a uso/consumo/ativo)"
+    erro: "Alíquota ≠ 12%"
+    ref_ttd: "1.2.b.2"
+
+  - id: B2_GERAL
+    camex: true
+    destinatario: [CONTRIBUINTE]
+    aplicacao: GERAL
+    permitidas: [12]
+    carga_efetiva: 3.6  # sem alternativa 2,1% quando não sabe aplicação
+    fundos: 0.4
+    cp: true
+    diferimento: true
+    obs: "CAMEX 12%. Sem saber aplicação, carga padrão 3,6%"
+    erro: "Alíquota ≠ 12%"
+    ref_ttd: "1.2.b.2"
+
+  # --- B2-Ind: Contribuinte Industrial CAMEX ---
+  - id: B2IND_REVENDA
+    camex: true
+    destinatario: [INDUSTRIA]
+    aplicacao: REVENDA
+    permitidas: [12]
+    carga_efetiva: 3.6
+    carga_alternativa: 2.1
+    fundos: 0.4
+    cp: true
+    diferimento: true
+    obs: "CAMEX prevalece. 12%. Recolh 3,6% ou 2,1% (alt)"
+    erro: "Alíquota ≠ 12%"
+    ref_ttd: "1.2.b.2"
+
+  - id: B2IND_INDUSTRIALIZACAO
+    camex: true
+    destinatario: [INDUSTRIA]
+    aplicacao: INDUSTRIALIZACAO
+    permitidas: [12]
+    carga_efetiva: 3.6
+    carga_alternativa: 2.1
+    fundos: 0.4
+    cp: true
+    diferimento: true
+    obs: "CAMEX prevalece sobre industrialização. 12%. Recolh 3,6% ou 2,1% (alt)"
+    erro: "Alíquota ≠ 12%"
+    ref_ttd: "1.2.b.2"
+
+  - id: B2IND_USO_CONSUMO
+    camex: true
+    destinatario: [INDUSTRIA]
+    aplicacao: USO_CONSUMO_ATIVO
+    permitidas: [12]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: true
+    obs: "CAMEX 12%. Sem alternativa 2,1% para uso/consumo"
+    erro: "Alíquota ≠ 12%"
+    ref_ttd: "1.2.b.2"
+
+  - id: B2IND_GERAL
+    camex: true
+    destinatario: [INDUSTRIA]
+    aplicacao: GERAL
+    permitidas: [12]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: true
+    obs: "CAMEX 12%. Sem saber aplicação, carga padrão 3,6%"
+    erro: "Alíquota ≠ 12%"
+    ref_ttd: "1.2.b.2"
+
+  # --- B4-CX: Simples COM ST + CAMEX ---
+  - id: B4CX_REVENDA
+    camex: true
+    destinatario: [SIMPLES]
+    st: true
+    aplicacao: REVENDA
+    permitidas: [12]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: false
+    obs: "CAMEX + SN + ST, revenda = 12%"
+    erro: "Alíquota ≠ 12%"
+    ref_ttd: "1.2.b.2"
+
+  - id: B4CX_USO_CONSUMO
+    camex: true
+    destinatario: [SIMPLES]
+    st: true
+    aplicacao: USO_CONSUMO_ATIVO
+    permitidas: [17]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: false
+    obs: "CAMEX + SN + ST, uso/consumo = 17%"
+    erro: "Alíquota ≠ 17%"
+    ref_ttd: "1.2.b.2"
+
+  - id: B4CX_GERAL
+    camex: true
+    destinatario: [SIMPLES]
+    st: true
+    aplicacao: GERAL
+    permitidas: [12, 17, 25]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: false
+    obs: "Sem saber aplicação, aceitar todas. Simulador = 17%"
+    erro: "Alíquota = 4%"
+    ref_ttd: "1.2.b.2"
+
+  # --- B5-CX: Simples SEM ST + CAMEX ---
+  - id: B5CX_REVENDA
+    camex: true
+    destinatario: [SIMPLES]
+    st: false
+    aplicacao: REVENDA
+    permitidas: [12]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: false
+    obs: "CAMEX + SN sem ST, revenda = 12%"
+    erro: "Alíquota ≠ 12%"
+    ref_ttd: "1.14.a"
+
+  - id: B5CX_USO_CONSUMO
+    camex: true
+    destinatario: [SIMPLES]
+    st: false
+    aplicacao: USO_CONSUMO_ATIVO
+    permitidas: [17]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: false
+    obs: "CAMEX + SN sem ST, uso/consumo = 17%"
+    erro: "Alíquota ≠ 17%"
+    ref_ttd: "1.14.a"
+
+  - id: B5CX_GERAL
+    camex: true
+    destinatario: [SIMPLES]
+    st: false
+    aplicacao: GERAL
+    permitidas: [17]
+    alternativas: [12, 25]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: false
+    obs: "Padrão 17%. Aceita 12% e 25%"
+    erro: "Alíquota = 4%"
+    ref_ttd: "1.14.a"
+
+  # --- B6-CX: PJ Não Contribuinte CAMEX ---
+  - id: B6CX
+    camex: true
+    destinatario: [NAO_CONTRIBUINTE]
+    aplicacao: "*"
+    permitidas: [17]
+    alternativas: [12, 25]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: false
+    obs: "CAMEX + não contrib. Alíquota interna conforme produto"
+    erro: "Alíquota = 4%"
+    ref_ttd: "1.14.b"
+
+  # --- B7 CAMEX: Pessoa Física (sem TTD independente de CAMEX) ---
+  - id: B7_CAMEX
+    camex: true
+    destinatario: [PESSOA_FISICA]
+    aplicacao: "*"
+    permitidas: [17]
+    alternativas: [12, 25]
+    carga_efetiva: -1
+    fundos: 0
+    cp: false
+    diferimento: false
+    obs: "SEM TTD independente de CAMEX. Recolhimento integral"
+    erro: "Qualquer uso de CP ou diferimento"
+    ref_ttd: "2.1.c.3"
+
+# ============================================================
+# CENÁRIOS ESPECIAIS
+# ============================================================
+cenarios_especiais:
+
+  - id: B9
+    destinatario: [DEST_COM_TTD]
+    filtro_cnpj: listaVedacao25a
+    permitidas: []
+    carga_efetiva: 0
+    fundos: 0
+    cp: false
+    diferimento: true
+    obs: "Vedação 2.5.a — dest com TTD próprio (Pró-Emprego). Lista CNPJs editável"
+    erro: "TTD vedado"
+    ref_ttd: "2.5.a"
+
+  - id: B10
+    destinatario: [DEST_TEXTIL]
+    filtro_cnpj: listaVedacao25b
+    permitidas: [10]
+    carga_efetiva: 3.6
+    fundos: 0.4
+    cp: true
+    diferimento: true
+    obs: "Vedação 2.5.b — têxtil. Lista CNPJs editável"
+    erro: "Alíquota ≠ 10%"
+    ref_ttd: "2.5.b"
+
+  - id: B11
+    destinatario: [CD_EXCLUSIVO]
+    filtro_cnpj: listaCD
+    permitidas: [10]
+    carga_efetiva: 1.0
+    fundos: 0.4
+    cp: true
+    diferimento: true
+    obs: "CD exclusivo. 95%+ fora SC. Lista CNPJs editável"
+    erro: "Alíquota ≠ 10%"
+    ref_ttd: "1.26"
+
+  - id: B12
+    destinatario: [FILIAL_SC]
+    filtro_cfop: [5152, 5155]
+    permitidas: []
+    carga_efetiva: -1
+    fundos: 0
+    cp: false
+    diferimento: false
+    obs: "Transferência filial SC. Sem CP. CFOP 5152/5155"
+    erro: "Qualquer uso de CP"
+    ref_ttd: "2.1.c.2"
+
+# ============================================================
+# MODIFICADORES
+# ============================================================
+modificadores:
+
+  - id: M01
+    descricao: "Aço e cobre"
+    filtro: ncm_aco_cobre
+    efeito: "Quando cenário permite 4%: carga 0,6% (não 1,0%). Alíquota NÃO muda"
+    severidade: INFO
+    ref_ttd: "1.2.a.1"
+
+  - id: M02
+    descricao: "Redução de base de cálculo"
+    filtro: bc_item < valor_produto
+    efeito: "BC reduzida. Alíquota normal. Apenas observar"
+    severidade: OBSERVACAO
+    ref_ttd: "1.7"
+
+# ============================================================
+# CONFIG GLOBAL
+# ============================================================
+config:
+  uf_aliquotas_camex:
+    PR: 12
+    RJ: 12
+    RS: 12
+    SP: 12
+    demais: 7
+
+  aliquotas_internas_validas: [7, 8.80, 12, 17, 25]
+  cfops_devolucao: [1201, 1202, 2201, 2202, 5201, 5202, 6201, 6202]
+  cfops_transferencia: [5152, 5155, 6152, 6155]
+  fundos_padrao: 0.4
+
+  derive_carga_efetiva:
+    aliq_0: 0
+    aliq_4: 1.0
+    aliq_4_cobre_aco: 0.6
+    aliq_7_ou_mais: "cenario.cargaEfetiva ou 3.6 (fallback)"
+    sem_cp: "integral (igual ao destaque)"

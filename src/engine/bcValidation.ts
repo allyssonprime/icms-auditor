@@ -51,17 +51,14 @@ export function validarBaseCalculo(item: ItemData): ValidationResult[] {
       resultados.push({
         status: 'INFO',
         mensagem:
-          `BC reduzida pelo desconto comercial: vProd ${item.vProd.toFixed(2)} - vDesc ` +
-          `${item.vDesc.toFixed(2)} = vBC ${item.vBC.toFixed(2)}.`,
+          `Base de cálculo reduzida por desconto comercial (BC R$ ${item.vBC.toFixed(2)} < Valor produto R$ ${item.vProd.toFixed(2)}).`,
         regra: 'BC03',
       });
     } else {
-      const pct = ((1 - item.vBC / item.vProd) * 100).toFixed(2);
       resultados.push({
         status: 'INFO',
         mensagem:
-          `BC (${item.vBC.toFixed(2)}) é ${pct}% menor que vProd (${item.vProd.toFixed(2)}) ` +
-          `sem CST 20 nem pRedBC declarada. Possível redução de BC não informada.`,
+          `Base de cálculo reduzida (BC R$ ${item.vBC.toFixed(2)} < Valor produto R$ ${item.vProd.toFixed(2)}) — sem CST 20 nem pRedBC declarados.`,
         regra: 'BC02',
       });
     }

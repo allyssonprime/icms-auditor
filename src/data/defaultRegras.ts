@@ -170,7 +170,8 @@ const GRUPOS_DEFAULT: GrupoRegra[] = [
         nome: 'Com CAMEX',
         prioridade: 1,
         condicaoExtra: { camex: true },
-        override: { aliquotasAceitas: [12, 7], cargaEfetiva: 3.6, refTTD: '1.2.b.2' },
+        // v3.2: carga 2,1% e o PADRAO CAMEX interestadual (nao 3,6%). Ref TTD 1.2.c
+        override: { aliquotasAceitas: [12, 7], cargaEfetiva: 2.1, refTTD: '1.2.b.2 + 1.2.c' },
       },
       {
         cenarioId: 'A1',
@@ -283,7 +284,8 @@ const GRUPOS_DEFAULT: GrupoRegra[] = [
     ativo: true,
     condicoes: { operacao: 'interna', tipoDest: ['pj_nc'] },
     valoresBase: {
-      aliquotasAceitas: [7, 12, 17, 25],
+      // v3.2: [17] primaria + 25 como alternativa (supperfluos). 7%/12% removidos (nao sao padrao NC interna)
+      aliquotasAceitas: [17, 25],
       cargaEfetiva: 3.6,
       fundos: 0.4,
       cstEsperado: ['00'],
@@ -294,31 +296,18 @@ const GRUPOS_DEFAULT: GrupoRegra[] = [
     },
     ramificacoes: [
       {
-        cenarioId: 'B6',
-        nome: 'PJ Nao Contribuinte — Revenda',
-        prioridade: 1,
-        condicaoExtra: { aplicacao: 'revenda' },
-        override: { aliquotasAceitas: [12] },
-      },
-      {
-        cenarioId: 'B6',
-        nome: 'PJ Nao Contribuinte — Industrializacao',
-        prioridade: 2,
-        condicaoExtra: { aplicacao: 'industrializacao' },
-        override: { aliquotasAceitas: [12] },
-      },
-      {
         cenarioId: 'B6-CAMEX',
         nome: 'PJ Nao Contribuinte — com CAMEX',
-        prioridade: 3,
+        prioridade: 1,
         condicaoExtra: { camex: true },
-        override: { aliquotasAceitas: [12, 17, 25], refTTD: '1.14.b' },
+        // v3.2: CAMEX NC primaria 17, alternativas 12 e 25
+        override: { aliquotasAceitas: [17, 12, 25], refTTD: '1.2.b.1 + 1.14.b' },
       },
       {
         cenarioId: 'B6',
         nome: 'PJ Nao Contribuinte',
-        prioridade: 4,
-        // sem condicaoExtra = catch-all: simulador outros usos + auditor
+        prioridade: 2,
+        // sem condicaoExtra = catch-all (sem CAMEX): simulador e auditor usam [17, 25]
       },
     ],
   },
@@ -349,11 +338,41 @@ const GRUPOS_DEFAULT: GrupoRegra[] = [
         condicaoExtra: { camex: false },
         override: { aliquotasAceitas: [4], cargaEfetiva: 1.0, refTTD: '1.2.a + 1.14.a' },
       },
+      // v3.2: B4-CAMEX split por aplicacao
+      {
+        cenarioId: 'B4CX-revenda',
+        nome: 'CAMEX + Revenda',
+        prioridade: 2,
+        condicaoExtra: { camex: true, aplicacao: 'revenda' },
+        override: { aliquotasAceitas: [12], cargaEfetiva: 3.6, refTTD: '1.2.b.2' },
+      },
+      {
+        cenarioId: 'B4CX-industrializacao',
+        nome: 'CAMEX + Industrializacao',
+        prioridade: 2,
+        condicaoExtra: { camex: true, aplicacao: 'industrializacao' },
+        override: { aliquotasAceitas: [12], cargaEfetiva: 3.6, refTTD: '1.2.b.2' },
+      },
+      {
+        cenarioId: 'B4CX-uso',
+        nome: 'CAMEX + Uso/Consumo',
+        prioridade: 2,
+        condicaoExtra: { camex: true, aplicacao: 'uso_consumo' },
+        override: { aliquotasAceitas: [17], cargaEfetiva: 3.6, refTTD: '1.2.b.2' },
+      },
+      {
+        cenarioId: 'B4CX-ativo',
+        nome: 'CAMEX + Ativo Permanente',
+        prioridade: 2,
+        condicaoExtra: { camex: true, aplicacao: 'ativo_permanente' },
+        override: { aliquotasAceitas: [17], cargaEfetiva: 3.6, refTTD: '1.2.b.2' },
+      },
       {
         cenarioId: 'B4-CAMEX',
-        nome: 'Com CAMEX',
-        prioridade: 2,
+        nome: 'Com CAMEX (catch-all)',
+        prioridade: 3,
         condicaoExtra: { camex: true },
+        // v3.2 catch-all: aceita [12, 17, 25] quando aplicacao indeterminada
         override: { aliquotasAceitas: [12, 17, 25], cargaEfetiva: 3.6, refTTD: '1.2.b.2' },
       },
     ],
@@ -368,35 +387,50 @@ const GRUPOS_DEFAULT: GrupoRegra[] = [
     ativo: true,
     condicoes: { operacao: 'interna', tipoDest: ['sn'], temST: false },
     valoresBase: {
-      aliquotasAceitas: [12, 17, 25],
+      // v3.2: primaria 17, alternativas 12 e 25 — catch-all aceita todas
+      aliquotasAceitas: [17, 12, 25],
       cargaEfetiva: 3.6,
       fundos: 0.4,
       cstEsperado: ['00'],
       cfopsEsperados: ['5101', '5102', '5106', '5107'],
       temCP: true,
       temDiferimentoParcial: false,
-      refTTD: '1.2.b.1 + 1.14.a',
+      refTTD: '1.14.a',
     },
     ramificacoes: [
       {
-        cenarioId: 'B5',
+        cenarioId: 'B5-revenda',
         nome: 'Simples Nacional sem ST — Revenda',
         prioridade: 1,
         condicaoExtra: { aplicacao: 'revenda' },
         override: { aliquotasAceitas: [12] },
       },
       {
-        cenarioId: 'B5',
+        cenarioId: 'B5-industrializacao',
         nome: 'Simples Nacional sem ST — Industrializacao',
         prioridade: 2,
         condicaoExtra: { aplicacao: 'industrializacao' },
         override: { aliquotasAceitas: [12] },
       },
       {
-        cenarioId: 'B5',
-        nome: 'Simples Nacional sem ST',
+        cenarioId: 'B5-uso',
+        nome: 'Simples Nacional sem ST — Uso/Consumo',
         prioridade: 3,
-        // sem condicaoExtra = catch-all: simulador outros usos + auditor
+        condicaoExtra: { aplicacao: 'uso_consumo' },
+        override: { aliquotasAceitas: [17] },
+      },
+      {
+        cenarioId: 'B5-ativo',
+        nome: 'Simples Nacional sem ST — Ativo Permanente',
+        prioridade: 4,
+        condicaoExtra: { aplicacao: 'ativo_permanente' },
+        override: { aliquotasAceitas: [17] },
+      },
+      {
+        cenarioId: 'B5',
+        nome: 'Simples Nacional sem ST (catch-all)',
+        prioridade: 5,
+        // sem condicaoExtra = catch-all: auditor e simulador geral usam [17, 12, 25]
       },
     ],
   },
@@ -434,17 +468,55 @@ const GRUPOS_DEFAULT: GrupoRegra[] = [
         condicaoExtra: { camex: true },
         override: { aliquotasAceitas: [12], cargaEfetiva: 3.6, refTTD: '1.2.b.2 + 1.13.a' },
       },
+      // v3.2: Industrial split por aplicacao.
+      // - Revenda/Uso/Ativo: apenas [4] (4% padrao)
+      // - Industrializacao: [4, 10] — 10% so para MP com mudanca NCM
+      // - Catch-all (auditor sem aplicacao): [4] — default seguro.
+      //   Items industriais a 10% sao flagados como ERRO pelo auditor (v3.2 strict).
+      //   O recolhimento de items a 10% nao muda (cargaEfetiva fallback 3,6%).
+      {
+        cenarioId: 'B3-revenda',
+        nome: 'Industrial (revenda)',
+        prioridade: 3,
+        condicaoExtra: { camex: false, listaEspecial: 'industrial', aplicacao: 'revenda' },
+        override: { aliquotasAceitas: [4], cargaEfetiva: 1.0, refTTD: '1.2.a' },
+      },
+      {
+        cenarioId: 'B3-industrializacao',
+        nome: 'Industrial (industrializacao — MP c/ mudanca NCM)',
+        prioridade: 3,
+        condicaoExtra: { camex: false, listaEspecial: 'industrial', aplicacao: 'industrializacao' },
+        override: { aliquotasAceitas: [4, 10], cargaEfetiva: 3.6, refTTD: '1.2.a + 1.2.e' },
+      },
+      {
+        cenarioId: 'B3-uso',
+        nome: 'Industrial (uso/consumo)',
+        prioridade: 3,
+        condicaoExtra: { camex: false, listaEspecial: 'industrial', aplicacao: 'uso_consumo' },
+        override: { aliquotasAceitas: [4], cargaEfetiva: 1.0, refTTD: '1.2.a' },
+      },
+      {
+        cenarioId: 'B3-ativo',
+        nome: 'Industrial (ativo permanente)',
+        prioridade: 3,
+        condicaoExtra: { camex: false, listaEspecial: 'industrial', aplicacao: 'ativo_permanente' },
+        override: { aliquotasAceitas: [4], cargaEfetiva: 1.0, refTTD: '1.2.a' },
+      },
       {
         cenarioId: 'B3',
-        nome: 'Industrial (MP c/ mudanca NCM)',
-        prioridade: 3,
+        nome: 'Industrial (geral — catch-all)',
+        prioridade: 4,
         condicaoExtra: { camex: false, listaEspecial: 'industrial' },
-        override: { aliquotasAceitas: [10, 4], cargaEfetiva: 3.6, refTTD: '1.2.e + 1.13.b' },
+        // v3.2 ajuste: catch-all industrial aceita [4, 10] porque nao sabemos se a
+        // compra e revenda (4%) ou industrializacao (4% ou 10%). Rejeitar 10% sem
+        // conhecer aplicacao seria falso positivo. cargaEfetiva=3.6 garante que
+        // items a 10% recolhem 3,6%; items a 4% recolhem 1,0% via regra absoluta.
+        override: { aliquotasAceitas: [4, 10], cargaEfetiva: 3.6, refTTD: '1.2.a + 1.2.e' },
       },
       {
         cenarioId: 'B1',
         nome: 'Padrao (sem CAMEX)',
-        prioridade: 4,
+        prioridade: 5,
         condicaoExtra: { camex: false },
         override: { aliquotasAceitas: [4], cargaEfetiva: 1.0, refTTD: '1.2.a + 1.13.c' },
       },
@@ -461,12 +533,12 @@ const VEDACOES_DEFAULT: VedacaoRule[] = [
     tipo: 'ncm_prefix',
     fonte: 'config',
     campoConfig: 'decreto2128',
-    mensagemErro: 'NCM {ncm} vedada pelo Decreto 2.128. TTD nao pode ser aplicado.',
+    mensagemErro: 'NCM {ncm} consta no Decreto 2.128/2009. TTD não se aplica.',
     regra: 'V01',
     ativo: true,
     excecao: {
       descricao: 'Operacao interna SC×SC com aliquota cheia (>=10%) — possivel autorizacao especifica no regime',
-      mensagemAlerta: 'NCM {ncm} consta no Decreto 2.128 (vedado), porem operacao interna SC a {aliq}% — verificar se empresa possui autorizacao especifica no TTD para este NCM (ex.: apuracao de CP mensal).',
+      mensagemAlerta: 'NCM {ncm} consta no Decreto 2.128/2009, porém operação interna SC a {aliq}%. Verificar se há autorização específica no TTD (ex: apuração de CP mensal).',
       regraExcecao: 'V01-EXC',
     },
   },
@@ -476,7 +548,7 @@ const VEDACOES_DEFAULT: VedacaoRule[] = [
     tipo: 'cfop_exato',
     fonte: 'inline',
     valores: ['5922', '6922'],
-    mensagemErro: 'TTD vedado para mercadoria usada.',
+    mensagemErro: 'TTD vedado para mercadoria usada (CFOP {cfop}).',
     regra: 'V02',
     ativo: true,
   },
@@ -495,12 +567,26 @@ const GLOBAL_DEFAULT: RegrasGlobal = {
   fundosPadrao: 0.004,
 };
 
-// --- RegrasConfig completa ---
+// --- RegrasConfig completa (constante frozen — source of truth) ---
 
+function deepFreeze<T extends object>(obj: T): Readonly<T> {
+  for (const val of Object.values(obj)) {
+    if (val && typeof val === 'object' && !Object.isFrozen(val)) {
+      deepFreeze(val as object);
+    }
+  }
+  return Object.freeze(obj);
+}
+
+export const REGRAS: Readonly<RegrasConfig> = deepFreeze({
+  grupos: GRUPOS_DEFAULT,
+  vedacoes: VEDACOES_DEFAULT,
+  global: GLOBAL_DEFAULT,
+});
+
+export const REGRAS_VERSION = '3.0';
+
+/** @deprecated Use REGRAS diretamente */
 export function getDefaultRegras(): RegrasConfig {
-  return {
-    grupos: GRUPOS_DEFAULT,
-    vedacoes: VEDACOES_DEFAULT,
-    global: GLOBAL_DEFAULT,
-  };
+  return REGRAS as RegrasConfig;
 }

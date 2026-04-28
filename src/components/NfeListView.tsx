@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { RefMono } from '@/components/ui/ref-mono';
 import { cn } from '@/lib/utils';
 import type { RegrasConfig } from '../types/regras.ts';
 
@@ -264,7 +265,7 @@ export function NfeListView({ results, filters, cnpjInfoMap, regras }: NfeListVi
                       selectedIdx === globalIdx && 'bg-primary-50 border-l-2 border-l-primary-500'
                     )}
                   >
-                    <TableCell className="px-3 py-2 font-mono font-medium text-foreground">{v.nfe.numero}</TableCell>
+                    <TableCell className="px-3 py-2"><RefMono className="font-medium">{v.nfe.numero}</RefMono></TableCell>
                     <TableCell className="px-3 py-2">
                       <div className="flex flex-col min-w-0">
                         <span className="truncate max-w-[150px] text-foreground font-mono text-[11px]" title={v.nfe.emitNome}>

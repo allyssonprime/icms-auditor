@@ -119,8 +119,11 @@ function gerarObservacoes(
 
   switch (cenarioId) {
     case 'B3':
-      obs.push('Opção 10% para industrial. Obriga comunicação formal ao destinatário (item 1.19 TTD).');
-      obs.push('Vantagem para o cliente: se credita 10% em vez de 4%.');
+      if (derivados.aplicacao === 'industrializacao') {
+        obs.push('Industrialização: destaque 10% (dá mais crédito ao cliente). Obriga comunicação formal ao destinatário (item 1.19 TTD).');
+      } else {
+        obs.push('Default 4% (baseline TTD 410). 10% é opcional — só aplicável se aplicação = industrialização + comunicação formal ao destinatário (item 1.19 TTD).');
+      }
       break;
     case 'B7':
       obs.push('Pessoa física consumidor final — ICMS integral, SEM crédito presumido.');
@@ -178,8 +181,12 @@ function escolherAliquotaDefault(
   config: AppConfig,
   derivados: CamposDerivados,
 ): number {
-  if (cenario.aliquotasAceitas.length === 0) return 0;
-  if (cenario.aliquotasAceitas.length === 1) return cenario.aliquotasAceitas[0];
+  // 25% é alíquota real de SC para supérfluos, mas o simulador não deve
+  // recomendar sem lista de NCMs supérfluos. Filtrar antes de escolher.
+  const aceitas = cenario.aliquotasAceitas.filter(a => Math.abs(a - 25) > 0.01);
+
+  if (aceitas.length === 0) return cenario.aliquotasAceitas[0] ?? 0;
+  if (aceitas.length === 1) return aceitas[0];
 
   // CAMEX interestadual com múltiplas alíquotas: usar alíquota conforme UF destino
   if (derivados.isCAMEX && derivados.operacao === 'interestadual') {
@@ -189,15 +196,19 @@ function escolherAliquotaDefault(
     return ufs12.includes(ufUpper) ? 12 : 7;
   }
 
-  // Industrial com múltiplas alíquotas: default é a maior (beneficia o cliente)
-  if (derivados.listaEspecial === 'industrial' && cenario.aliquotasAceitas.length > 1) {
-    return Math.max(...cenario.aliquotasAceitas);
+  // Industrial com múltiplas alíquotas (B3):
+  // - Aplicação = industrializacao → 10% (dá mais crédito, ramificação específica).
+  // - Sem aplicação / outras aplicações → 4% (baseline legal TTD 410; 10% é opcional).
+  const isB3 = cenario.id === 'B3' || cenario.id === 'B3-industrializacao';
+  if (isB3 && aceitas.length > 1) {
+    if (derivados.aplicacao === 'industrializacao') return Math.max(...aceitas);
+    return Math.min(...aceitas);
   }
 
   // Cenários com alíquota interna: default 17%
-  if (cenario.aliquotasAceitas.includes(17)) return 17;
+  if (aceitas.includes(17)) return 17;
 
-  return cenario.aliquotasAceitas[0];
+  return aceitas[0];
 }
 
 // ── Simulador principal ─────────────────────────────────────────

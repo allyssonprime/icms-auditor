@@ -2,13 +2,13 @@ import { useMemo } from 'react';
 import type { NfeValidation } from '../types/validation.ts';
 import type { AppConfig } from '../types/config.ts';
 import type { RegrasConfig } from '../types/regras.ts';
-import type { CenarioConfig } from '../types/cenario.ts';
-import { formatCurrency, bcIntegral } from '../utils/formatters.ts';
-import { isCobreAco } from '../data/cobreAco.ts';
+import { formatCurrency } from '../utils/formatters.ts';
 import { getCenarios } from '../engine/cenarios.ts';
+import { buildDashboardGroups, type AliquotaGroup } from './dashboardGroups.ts';
 import { CheckCircle2, AlertTriangle, XCircle, Receipt, AlertCircle, Info, BarChart3 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { StatCard } from '@/components/ui/stat-card';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
@@ -23,116 +23,6 @@ interface DashboardProps {
   discardedDuplicates?: number;
   config: AppConfig;
   regras: RegrasConfig;
-}
-
-interface AliquotaGroup {
-  label: string;
-  itens: number;
-  totalBC: number;
-  totalICMSDestacado: number;
-  cargaPct: number;
-  icmsRecolher: number;
-  fundos: number;
-  total: number;
-}
-
-function buildGroups(results: NfeValidation[], config: AppConfig, cenariosMap: Record<string, CenarioConfig>): {
-  groups: AliquotaGroup[];
-  camex21Groups: AliquotaGroup[];
-  grandTotal36: { icmsRecolher: number; fundos: number; total: number };
-  grandTotal21: { icmsRecolher: number; fundos: number; total: number };
-} {
-  const acc: Record<string, { itens: number; bc: number; icms: number; recolher: number; fundos: number; carga: number }> = {};
-  const accCamex21: Record<string, { itens: number; bc: number; icms: number; recolher: number; fundos: number; carga: number }> = {};
-
-  for (const nv of results) {
-    for (const iv of nv.itensValidados) {
-      const pICMS = iv.item.pICMS;
-      const cenarioId = iv.cenario;
-      const isCamex = cenariosMap[cenarioId]?.isCAMEX ?? false;
-      const isAcoCobre = Math.abs(pICMS - 4) < 0.01 && isCobreAco(iv.item.ncm, config.listaCobreAco);
-      const cenarioConfig = cenariosMap[cenarioId];
-      const fundosPct = cenarioConfig?.fundos ?? 0;
-      const bc = bcIntegral(iv.item.vBC, iv.item.pRedBC);
-      const fundosVal = fundosPct > 0 ? bc * (fundosPct / 100) : 0;
-
-      let groupKey: string;
-      let carga: number;
-
-      if (Math.abs(pICMS - 4) < 0.01) {
-        if (isAcoCobre) { groupKey = '4% Aço/Cobre'; carga = 0.6; }
-        else { groupKey = '4%'; carga = 1.0; }
-      } else if (Math.abs(pICMS - 10) < 0.01) {
-        groupKey = '10%'; carga = 3.6;
-      } else if (Math.abs(pICMS - 12) < 0.01) {
-        groupKey = isCamex ? '12% CAMEX' : '12%'; carga = 3.6;
-      } else if (Math.abs(pICMS - 17) < 0.01) {
-        groupKey = '17%'; carga = 3.6;
-      } else if (Math.abs(pICMS - 7) < 0.01) {
-        groupKey = '7%'; carga = 3.6;
-      } else if (Math.abs(pICMS - 25) < 0.01) {
-        groupKey = '25%'; carga = 3.6;
-      } else if (pICMS === 0) {
-        groupKey = '0% (Diferimento/Transf.)'; carga = 0;
-      } else {
-        groupKey = `${pICMS}%`; carga = 3.6;
-      }
-
-      const recolher = carga > 0 ? bc * (carga / 100) : 0;
-
-      if (!acc[groupKey]) acc[groupKey] = { itens: 0, bc: 0, icms: 0, recolher: 0, fundos: 0, carga };
-      acc[groupKey].itens++;
-      acc[groupKey].bc += bc;
-      acc[groupKey].icms += iv.item.vICMS;
-      acc[groupKey].recolher += recolher;
-      acc[groupKey].fundos += fundosVal;
-
-      // CAMEX 2.1% alternative view
-      if (isCamex && Math.abs(pICMS - 12) < 0.01) {
-        const altKey = '12% CAMEX (2,1%)';
-        const altCarga = 2.1;
-        const altRecolher = bc * (altCarga / 100);
-        if (!accCamex21[altKey]) accCamex21[altKey] = { itens: 0, bc: 0, icms: 0, recolher: 0, fundos: 0, carga: altCarga };
-        accCamex21[altKey].itens++;
-        accCamex21[altKey].bc += bc;
-        accCamex21[altKey].icms += iv.item.vICMS;
-        accCamex21[altKey].recolher += altRecolher;
-        accCamex21[altKey].fundos += fundosVal;
-      } else {
-        if (!accCamex21[groupKey]) accCamex21[groupKey] = { itens: 0, bc: 0, icms: 0, recolher: 0, fundos: 0, carga };
-        accCamex21[groupKey].itens++;
-        accCamex21[groupKey].bc += bc;
-        accCamex21[groupKey].icms += iv.item.vICMS;
-        accCamex21[groupKey].recolher += recolher;
-        accCamex21[groupKey].fundos += fundosVal;
-      }
-    }
-  }
-
-  const sortOrder = ['4% Aço/Cobre', '4%', '7%', '10%', '12% CAMEX', '12% CAMEX (2,1%)', '12%', '17%', '25%'];
-
-  function toGroups(map: Record<string, { itens: number; bc: number; icms: number; recolher: number; fundos: number; carga: number }>): AliquotaGroup[] {
-    return Object.entries(map)
-      .sort(([a], [b]) => {
-        const ia = sortOrder.indexOf(a);
-        const ib = sortOrder.indexOf(b);
-        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-      })
-      .map(([label, v]) => ({
-        label, itens: v.itens, totalBC: v.bc, totalICMSDestacado: v.icms,
-        cargaPct: v.carga, icmsRecolher: v.recolher, fundos: v.fundos, total: v.recolher + v.fundos,
-      }));
-  }
-
-  const groups = toGroups(acc);
-  const camex21Groups = toGroups(accCamex21);
-  const sum = (gs: AliquotaGroup[]) => ({
-    icmsRecolher: gs.reduce((s, g) => s + g.icmsRecolher, 0),
-    fundos: gs.reduce((s, g) => s + g.fundos, 0),
-    total: gs.reduce((s, g) => s + g.total, 0),
-  });
-
-  return { groups, camex21Groups, grandTotal36: sum(groups), grandTotal21: sum(camex21Groups) };
 }
 
 export function Dashboard({ results, uploadedTotal = 0, discardedByCfop = 0, discardedZero = 0, discardedDuplicates = 0, config, regras }: DashboardProps) {
@@ -150,8 +40,7 @@ export function Dashboard({ results, uploadedTotal = 0, discardedByCfop = 0, dis
   const totalICMSDestacado = results.reduce((s, r) => s + r.totalICMSDestacado, 0);
   const totalItens = results.reduce((s, r) => s + r.itensValidados.length, 0);
 
-  const { groups, camex21Groups, grandTotal36, grandTotal21 } = buildGroups(results, config, cenariosMap);
-  const hasCamex = groups.some(g => g.label === '12% CAMEX');
+  const { groups, grandTotal } = buildDashboardGroups(results, config, cenariosMap);
 
   // Build real alerts from validation data
   const alerts: { severity: 'erro' | 'divergencia' | 'aviso'; message: string }[] = [];
@@ -161,12 +50,12 @@ export function Dashboard({ results, uploadedTotal = 0, discardedByCfop = 0, dis
   const bcInconsistent = results.reduce((s, r) => s + r.itensValidados.filter(iv => !iv.bcConsistente).length, 0);
   if (bcInconsistent > 0) alerts.push({ severity: 'aviso', message: `${bcInconsistent} itens com BC ICMS inconsistente (base de calculo diverge do esperado)` });
 
-  const effectiveRate = totalBC > 0 ? (grandTotal36.icmsRecolher / totalBC) * 100 : 0;
+  const effectiveRate = totalBC > 0 ? (grandTotal.icmsRecolher / totalBC) * 100 : 0;
 
   return (
     <div className="mb-4 space-y-2.5">
       {/* Status summary bar */}
-      <Card className="bg-gradient-to-r from-[#2B318A] to-[#5A81FA] border-0 shadow-lg">
+      <Card className="bg-[color:var(--prime-navy)] border-0 shadow-lg">
         <CardContent className="py-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
@@ -183,50 +72,52 @@ export function Dashboard({ results, uploadedTotal = 0, discardedByCfop = 0, dis
                 </p>
               </div>
             </div>
-            {totalNfes > 0 && (
-              <div className="flex items-center gap-2">
-                <Badge className="bg-emerald-400 text-emerald-950 border-0 font-semibold text-sm px-3 py-1 gap-1.5 shadow-sm">
-                  <CheckCircle2 size={15} aria-hidden />
-                  {nfesOk} OK
-                </Badge>
-                {nfesInfo > 0 && (
-                  <Badge className="bg-sky-400 text-sky-950 border-0 font-semibold text-sm px-3 py-1 gap-1.5 shadow-sm">
-                    <Info size={15} aria-hidden />
-                    {nfesInfo} Info
-                  </Badge>
-                )}
-                {nfesAviso > 0 && (
-                  <Badge className="bg-amber-400 text-amber-950 border-0 font-semibold text-sm px-3 py-1 gap-1.5 shadow-sm">
-                    <AlertCircle size={15} aria-hidden />
-                    {nfesAviso} Aviso{nfesAviso > 1 ? 's' : ''}
-                  </Badge>
-                )}
-                {nfesDivergencia > 0 && (
-                  <Badge className="bg-orange-400 text-orange-950 border-0 font-semibold text-sm px-3 py-1 gap-1.5 shadow-sm">
-                    <AlertTriangle size={15} aria-hidden />
-                    {nfesDivergencia} Diverg.
-                  </Badge>
-                )}
-                {nfesErro > 0 && (
-                  <Badge className="bg-red-400 text-red-950 border-0 font-semibold text-sm px-3 py-1 gap-1.5 shadow-sm">
-                    <XCircle size={15} aria-hidden />
-                    {nfesErro} Erro{nfesErro > 1 ? 's' : ''}
-                  </Badge>
-                )}
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
 
       {totalNfes > 0 && (
         <>
+      {/* Status distribution — StatCard row */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+        <StatCard
+          icon={<CheckCircle2 size={20} aria-hidden />}
+          tone="success"
+          value={nfesOk}
+          label="OK"
+        />
+        <StatCard
+          icon={<Info size={20} aria-hidden />}
+          tone="blue"
+          value={nfesInfo}
+          label="Info"
+        />
+        <StatCard
+          icon={<AlertCircle size={20} aria-hidden />}
+          tone="gold"
+          value={nfesAviso}
+          label={`Aviso${nfesAviso !== 1 ? 's' : ''}`}
+        />
+        <StatCard
+          icon={<AlertTriangle size={20} aria-hidden />}
+          tone="orange"
+          value={nfesDivergencia}
+          label="Divergências"
+        />
+        <StatCard
+          icon={<XCircle size={20} aria-hidden />}
+          tone="danger"
+          value={nfesErro}
+          label={`Erro${nfesErro !== 1 ? 's' : ''}`}
+        />
+      </div>
+
       {/* Metric cards with context */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <TotalCard label="Total BC ICMS" value={totalBC} subtitle={`${totalItens} itens em ${totalNfes} NF-e`} showCorner />
         <TotalCard label="ICMS Destacado" value={totalICMSDestacado} subtitle={totalBC > 0 ? `${((totalICMSDestacado / totalBC) * 100).toFixed(1)}% da BC` : undefined} />
-        <TotalCard label="ICMS Recolher (CAMEX 3,6%)" value={grandTotal36.icmsRecolher} accent="blue" subtitle={`Carga efetiva ${effectiveRate.toFixed(2)}%`} />
-        <TotalCard label="Total c/ Fundos (CAMEX 3,6%)" value={grandTotal36.total} accent="red" subtitle={`Fundos: ${formatCurrency(grandTotal36.fundos)}`} />
+        <TotalCard label="ICMS Recolher" value={grandTotal.icmsRecolher} accent="blue" subtitle={`Carga efetiva ${effectiveRate.toFixed(2)}%`} />
+        <TotalCard label="Total c/ Fundos" value={grandTotal.total} accent="red" subtitle={`Fundos: ${formatCurrency(grandTotal.fundos)}`} />
       </div>
 
       {/* Real alerts from validation */}
@@ -249,7 +140,7 @@ export function Dashboard({ results, uploadedTotal = 0, discardedByCfop = 0, dis
       )}
 
       {/* Single unified aliquota table */}
-      <AliquotaTable groups={groups} grandTotal={grandTotal36} camex21Groups={hasCamex ? camex21Groups : undefined} grandTotal21={hasCamex ? grandTotal21 : undefined} />
+      <AliquotaTable groups={groups} grandTotal={grandTotal} />
 
         </>
       )}
@@ -265,17 +156,10 @@ function getAliquotaBadgeClass(label: string): string {
   return 'bg-surface-container text-foreground px-2 py-1 rounded text-xs font-bold tabular-nums';
 }
 
-function AliquotaTable({ groups, grandTotal, camex21Groups, grandTotal21 }: {
+function AliquotaTable({ groups, grandTotal }: {
   groups: AliquotaGroup[];
   grandTotal: { icmsRecolher: number; fundos: number; total: number };
-  camex21Groups?: AliquotaGroup[];
-  grandTotal21?: { icmsRecolher: number; fundos: number; total: number };
 }) {
-  const hasCamex = !!camex21Groups && !!grandTotal21;
-  // Find the CAMEX 2.1% alternative row to show inline
-  const camex21Row = camex21Groups?.find(g => g.label.includes('2,1%'));
-  const diffRecolher = hasCamex ? grandTotal.icmsRecolher - grandTotal21!.icmsRecolher : 0;
-
   return (
     <div className="bg-surface-lowest rounded-xl shadow-[0_12px_32px_-4px_rgba(19,27,46,0.08)] overflow-hidden">
       {/* Compact header */}
@@ -324,58 +208,16 @@ function AliquotaTable({ groups, grandTotal, camex21Groups, grandTotal21 }: {
               </TableRow>
             ))}
 
-            {/* CAMEX 2.1% alternative row - inline, visually distinct */}
-            {hasCamex && camex21Row && (
-              <TableRow className="h-8 bg-purple-50/30 border-b border-purple-100/50">
-                <TableCell className="px-4 py-1.5">
-                  <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[10px] font-bold tabular-nums">
-                    &nbsp;&nbsp;&#x21B3; se CAMEX a 2,1%
-                  </span>
-                </TableCell>
-                <TableCell className="px-4 py-1.5 text-right text-muted-foreground tabular-nums">{camex21Row.itens}</TableCell>
-                <TableCell className="px-4 py-1.5 text-right font-mono tabular-nums text-muted-foreground">{formatCurrency(camex21Row.totalBC)}</TableCell>
-                <TableCell className="px-4 py-1.5 text-right font-mono tabular-nums text-muted-foreground">{formatCurrency(camex21Row.totalICMSDestacado)}</TableCell>
-                <TableCell className="px-4 py-1.5 text-right">
-                  <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-[11px] font-bold rounded-full px-2 py-0.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                    {camex21Row.cargaPct}%
-                  </span>
-                </TableCell>
-                <TableCell className="px-4 py-1.5 text-right font-mono tabular-nums text-purple-700">{formatCurrency(camex21Row.icmsRecolher)}</TableCell>
-                <TableCell className="px-4 py-1.5 text-right font-mono tabular-nums text-muted-foreground">{formatCurrency(camex21Row.fundos)}</TableCell>
-                <TableCell className="px-4 py-1.5 text-right font-mono tabular-nums font-semibold text-purple-700">{formatCurrency(camex21Row.total)}</TableCell>
-              </TableRow>
-            )}
           </TableBody>
           <TableFooter>
             <TableRow className="bg-muted font-semibold border-t-2 border-border">
               <TableCell className="px-4 py-2 text-foreground" colSpan={5}>
-                Total {hasCamex && <span className="font-normal text-muted-foreground text-[10px] ml-1">(CAMEX 3,6%)</span>}
+                Total
               </TableCell>
               <TableCell className="px-4 py-2 text-right font-mono tabular-nums text-primary">{formatCurrency(grandTotal.icmsRecolher)}</TableCell>
               <TableCell className="px-4 py-2 text-right font-mono tabular-nums">{formatCurrency(grandTotal.fundos)}</TableCell>
               <TableCell className="px-4 py-2 text-right font-mono tabular-nums">{formatCurrency(grandTotal.total)}</TableCell>
             </TableRow>
-            {hasCamex && grandTotal21 && (
-              <>
-                <TableRow className="bg-purple-50/40 font-semibold border-t border-purple-100">
-                  <TableCell className="px-4 py-2 text-purple-700" colSpan={5}>
-                    Total <span className="text-[10px] ml-1">(CAMEX 2,1%)</span>
-                  </TableCell>
-                  <TableCell className="px-4 py-2 text-right font-mono tabular-nums text-purple-700">{formatCurrency(grandTotal21.icmsRecolher)}</TableCell>
-                  <TableCell className="px-4 py-2 text-right font-mono tabular-nums text-purple-700">{formatCurrency(grandTotal21.fundos)}</TableCell>
-                  <TableCell className="px-4 py-2 text-right font-mono tabular-nums text-purple-700">{formatCurrency(grandTotal21.total)}</TableCell>
-                </TableRow>
-                <TableRow className="bg-slate-50 text-[10px]">
-                  <TableCell className="px-4 py-1.5 text-muted-foreground" colSpan={5}>
-                    Diferenca (3,6% &minus; 2,1%)
-                  </TableCell>
-                  <TableCell className="px-4 py-1.5 text-right font-mono tabular-nums text-foreground font-semibold">{formatCurrency(diffRecolher)}</TableCell>
-                  <TableCell className="px-4 py-1.5 text-right font-mono tabular-nums text-muted-foreground">&mdash;</TableCell>
-                  <TableCell className="px-4 py-1.5 text-right font-mono tabular-nums text-foreground font-semibold">{formatCurrency(grandTotal.total - grandTotal21.total)}</TableCell>
-                </TableRow>
-              </>
-            )}
           </TableFooter>
         </Table>
       </div>

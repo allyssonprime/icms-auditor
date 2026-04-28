@@ -2,21 +2,23 @@ import { useState } from 'react';
 import { ShieldCheck, Calculator, BookOpen, Settings, FileSpreadsheet, Receipt, Menu, X, HelpCircle, LogOut, FileSearch } from 'lucide-react';
 import type { ActiveView } from '../../App';
 import { useAuth } from '@/auth/AuthContext';
+import primeSidebarLogo from '@/assets/logo-dourada-branca.png';
 
 interface SidebarProps {
   activeView: ActiveView;
   setActiveView: (view: ActiveView) => void;
   buildTimestamp?: string;
+  onViewIntent?: (view: ActiveView) => void;
 }
 
-export function Sidebar({ activeView, setActiveView, buildTimestamp = 'v1.0' }: SidebarProps) {
+export function Sidebar({ activeView, setActiveView, buildTimestamp = 'v1.0', onViewIntent }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { logout } = useAuth();
 
   const menuItems = [
     { id: 'auditor' as ActiveView, label: 'Auditor', icon: ShieldCheck },
     { id: 'simulador' as ActiveView, label: 'Simulador', icon: Calculator },
-    { id: 'regras' as ActiveView, label: 'Regras', icon: BookOpen },
+    { id: 'regras' as ActiveView, label: 'Regras TTD', icon: BookOpen },
     { id: 'reconciliacao' as ActiveView, label: 'Reconciliação', icon: FileSpreadsheet },
     { id: 'apuracao_ttd' as ActiveView, label: 'Apuração TTD', icon: Receipt },
     { id: 'cross_validation' as ActiveView, label: 'Validação EFD', icon: FileSearch },
@@ -31,10 +33,8 @@ export function Sidebar({ activeView, setActiveView, buildTimestamp = 'v1.0' }: 
   const navContent = (
     <>
       {/* Branding Logo Area */}
-      <div className="flex flex-col items-center px-2 mb-8">
-        <img src="/icone-azul.png" alt="Prime" className="w-14 h-14 object-contain" />
-        <h1 className="text-white text-lg font-bold tracking-tighter font-heading mt-2">ICMS Auditor</h1>
-        <p className="text-[10px] text-slate-500 font-medium tracking-widest uppercase">Sovereign Analyst</p>
+      <div className="flex items-center justify-center px-4 mb-8">
+        <img src={primeSidebarLogo} alt="Prime Internacional" className="h-9 w-auto -translate-x-2 object-contain" />
       </div>
 
       {/* Navigation Menu */}
@@ -45,14 +45,16 @@ export function Sidebar({ activeView, setActiveView, buildTimestamp = 'v1.0' }: 
             <button
               key={item.id}
               onClick={() => handleNav(item.id)}
+              onMouseEnter={() => onViewIntent?.(item.id)}
+              onFocus={() => onViewIntent?.(item.id)}
               className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors duration-200 cursor-pointer font-heading tracking-tight ${
                 isActive
-                  ? 'bg-blue-600/10 text-blue-400 font-semibold border-r-4 border-blue-500 rounded-l-lg'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg'
+                  ? 'bg-sidebar-primary text-sidebar-primary-foreground font-semibold rounded-lg'
+                  : 'text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent rounded-lg'
               }`}
               aria-current={isActive ? 'page' : undefined}
             >
-              <item.icon size={18} className={isActive ? 'text-blue-400' : 'text-slate-400'} aria-hidden />
+              <item.icon size={18} className={isActive ? 'text-sidebar-primary-foreground' : 'text-sidebar-foreground/75'} aria-hidden />
               <span>{item.label}</span>
             </button>
           );
@@ -61,20 +63,20 @@ export function Sidebar({ activeView, setActiveView, buildTimestamp = 'v1.0' }: 
 
       {/* Footer */}
       <div className="mt-auto px-4 space-y-1">
-        <div className="border-t border-slate-800/50 pt-4 mb-4">
-          <p className="text-[10px] text-slate-500 px-4 mb-1">Build</p>
-          <p className="text-xs font-bold text-slate-400 px-4 truncate">{buildTimestamp}</p>
+        <div className="border-t border-sidebar-foreground/15 pt-4 mb-4">
+          <p className="text-[10px] text-sidebar-foreground/60 px-4 mb-1">Build</p>
+          <p className="text-xs font-bold text-sidebar-foreground/75 px-4 truncate">{buildTimestamp}</p>
         </div>
         <button
           onClick={() => {}}
-          className="w-full flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-white transition-colors rounded-lg text-xs"
+          className="w-full flex items-center gap-3 px-4 py-2 text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors rounded-lg text-xs"
         >
           <HelpCircle size={16} aria-hidden />
           <span>Suporte</span>
         </button>
         <button
           onClick={logout}
-          className="w-full flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-white transition-colors rounded-lg text-xs mb-6"
+          className="w-full flex items-center gap-3 px-4 py-2 text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors rounded-lg text-xs mb-6"
         >
           <LogOut size={16} aria-hidden />
           <span>Sair</span>
@@ -88,7 +90,7 @@ export function Sidebar({ activeView, setActiveView, buildTimestamp = 'v1.0' }: 
       {/* Mobile hamburger button */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="fixed top-4 left-4 z-50 lg:hidden w-10 h-10 bg-slate-950 text-white rounded-lg flex items-center justify-center shadow-lg"
+        className="fixed top-4 left-4 z-50 lg:hidden w-10 h-10 bg-sidebar text-sidebar-foreground rounded-lg flex items-center justify-center shadow-lg"
         aria-label="Abrir menu"
       >
         <Menu size={20} />
@@ -105,13 +107,13 @@ export function Sidebar({ activeView, setActiveView, buildTimestamp = 'v1.0' }: 
 
       {/* Mobile sidebar (slide-in) */}
       <aside
-        className={`fixed left-0 top-0 h-full w-64 bg-slate-950 flex flex-col pt-6 z-50 shadow-2xl shadow-slate-950/50 transition-transform duration-300 lg:hidden ${
+        className={`fixed left-0 top-0 h-full w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col pt-6 z-50 shadow-2xl transition-transform duration-300 lg:hidden ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <button
           onClick={() => setMobileOpen(false)}
-          className="absolute top-4 right-4 text-slate-400 hover:text-white"
+          className="absolute top-4 right-4 text-sidebar-foreground/75 hover:text-sidebar-foreground"
           aria-label="Fechar menu"
         >
           <X size={20} />
@@ -120,7 +122,7 @@ export function Sidebar({ activeView, setActiveView, buildTimestamp = 'v1.0' }: 
       </aside>
 
       {/* Desktop sidebar (always visible) */}
-      <aside className="hidden lg:flex fixed left-0 top-0 h-full w-64 bg-slate-950 flex-col pt-6 z-50 shadow-2xl shadow-slate-950/50">
+      <aside className="hidden lg:flex fixed left-0 top-0 h-full w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex-col pt-6 z-50 shadow-2xl">
         {navContent}
       </aside>
     </>

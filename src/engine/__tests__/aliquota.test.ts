@@ -43,16 +43,13 @@ describe('validarAliquota', () => {
 
   it('should accept valid internal rates for B5 (SN dest), 17% with SN-only → AVISO', () => {
     const snConfig = makeConfig({ listaSN: ['12345678000199'] });
-    // v3: B5 aceita apenas [12, 17, 25] (removidos 7% e 8.80%)
-    for (const rate of [12, 25]) {
-      const item = makeItem({ pICMS: rate, cCredPresumido: rate >= 12 ? 'CP123' : undefined });
-      const dest = makeDest({ uf: 'SC', cnpj: '12345678000199' });
-      const { result } = validarAliquota(item, CENARIOS['B5']!, dest, snConfig);
-      expect(result.status).toBe('OK');
-    }
+    const dest = makeDest({ uf: 'SC', cnpj: '12345678000199' });
+    // B5 aceita apenas [12, 17] — 25% removido (nao e aliquota padrao SN)
+    const item12 = makeItem({ pICMS: 12, cCredPresumido: 'CP123' });
+    const { result: result12 } = validarAliquota(item12, CENARIOS['B5']!, dest, snConfig);
+    expect(result12.status).toBe('OK');
     // 17% com SN como unica justificativa → AVISO (justificativa fraca)
     const item17 = makeItem({ pICMS: 17 });
-    const dest = makeDest({ uf: 'SC', cnpj: '12345678000199' });
     const { result: result17 } = validarAliquota(item17, CENARIOS['B5']!, dest, snConfig);
     expect(result17.status).toBe('AVISO');
     expect(result17.regra).toBe('AL07');
@@ -65,15 +62,28 @@ describe('validarAliquota', () => {
     expect(result.status).toBe('OK');
   });
 
-  it('B3: should alert when 4% used instead of 10%', () => {
+  it('B3 catch-all (industrial, sem aplicacao): 4% → INFO (AL06: 10% disponivel)', () => {
+    // v3.2 ajuste: catch-all [4, 10]. 4% e valido mas 10% daria mais credito.
     const item = makeItem({ pICMS: 4 });
     const dest = makeDest({ uf: 'SC' });
     const { result } = validarAliquota(item, CENARIOS['B3']!, dest, config);
     expect(result.status).toBe('INFO');
-    expect(result.mensagem).toContain('10%');
+    expect(result.regra).toBe('AL06');
   });
 
-  it('B3: should accept 10% when dest is industrial', () => {
+  it('B3-industrializacao: should accept 10% when dest is industrial', () => {
+    // v3.2: 10% aceito em B3 somente via B3-industrializacao (aplicacao especifica)
+    const item = makeItem({ pICMS: 10 });
+    const dest = makeDest({ uf: 'SC', cnpj: '12345678000199' });
+    const industrialConfig = makeConfig({ listaIndustriais: ['12345678000199'] });
+    const { result } = validarAliquota(item, CENARIOS['B3-industrializacao']!, dest, industrialConfig);
+    expect(result.status).toBe('OK');
+  });
+
+  it('B3 catch-all: 10% → OK (v3.2 ajuste: industrial aceita [4, 10] sem aplicacao)', () => {
+    // v3.2 ajuste: auditor (aplicacao=null) cai no catch-all B3 = [4, 10].
+    // Se dest e industrial, 10% pode ser MP com mudanca NCM — nao rejeitar.
+    // Cross-checks CK10B/CK10E podem virar AVISO/DIVERGENCIA dependendo do cenario.
     const item = makeItem({ pICMS: 10 });
     const dest = makeDest({ uf: 'SC', cnpj: '12345678000199' });
     const industrialConfig = makeConfig({ listaIndustriais: ['12345678000199'] });
@@ -81,12 +91,14 @@ describe('validarAliquota', () => {
     expect(result.status).toBe('OK');
   });
 
-  it('B3: should alert 10% when dest is not industrial', () => {
-    const item = makeItem({ pICMS: 10 });
+  it('B3 catch-all: 17% com CP → AVISO (AL10: regime alternativo TTD)', () => {
+    // Regra AL10 pre-existente: interna SC + aliquota cheia + CP = regime alternativo.
+    // 17% nao e padrao B3 mas e flagado como AVISO (nao ERRO silencioso).
+    const item = makeItem({ pICMS: 17, cCredPresumido: 'CP123' });
     const dest = makeDest({ uf: 'SC' });
     const { result } = validarAliquota(item, CENARIOS['B3']!, dest, config);
-    expect(result.status).toBe('DIVERGENCIA');
-    expect(result.mensagem).toContain('divergencias');
+    expect(result.status).toBe('AVISO');
+    expect(result.regra).toBe('AL10');
   });
 });
 
@@ -132,10 +144,12 @@ describe('cross-checks 12% (OR logic with severity)', () => {
     expect(crossChecks.find(c => c.regra === 'CK12C')?.severity).toBe('ok');
   });
 
-  it('12% + NC dest (no CAMEX, no SN) → DIVERGENCIA, CK12D=divergente', () => {
-    const item = makeItem({ pICMS: 12, cstOrig: '1', cst: '100' });
+  it('12% + NC dest (B6-CAMEX) → DIVERGENCIA, CK12D=divergente', () => {
+    // v3.2: B6 catch-all = [17, 25] — 12% nao e mais aceito em B6 sem CAMEX.
+    // Usar B6-CAMEX onde 12% e alternativa valida mas CK12D falha para NC.
+    const item = makeItem({ pICMS: 12, cstOrig: '6', cst: '600' });
     const dest = makeDest({ uf: 'SC', indIEDest: '9' });
-    const { result, crossChecks } = validarAliquota(item, CENARIOS['B6']!, dest, config);
+    const { result, crossChecks } = validarAliquota(item, CENARIOS['B6-CAMEX']!, dest, config);
     expect(result.status).toBe('DIVERGENCIA');
     expect(crossChecks.find(c => c.regra === 'CK12D')?.severity).toBe('divergente');
   });
@@ -192,16 +206,17 @@ describe('cross-checks 4%', () => {
 });
 
 describe('cross-checks 10% (OR: industrial OU CNAE)', () => {
-  it('10% + B3 + industrial in list → OK, CK10B=ok', () => {
+  it('10% + B3-industrializacao + industrial in list → OK, CK10B=ok', () => {
+    // v3.2: 10% aceito em B3 somente em B3-industrializacao
     const item = makeItem({ pICMS: 10 });
     const dest = makeDest({ uf: 'SC', cnpj: '12345678000199' });
     const config = makeConfig({ listaIndustriais: ['12345678000199'] });
-    const { result, crossChecks } = validarAliquota(item, CENARIOS['B3']!, dest, config);
+    const { result, crossChecks } = validarAliquota(item, CENARIOS['B3-industrializacao']!, dest, config);
     expect(result.status).toBe('OK');
     expect(crossChecks.find(c => c.regra === 'CK10B')?.severity).toBe('ok');
   });
 
-  it('10% + B3 + CNAE industrial (from cnpjInfoMap) → OK, CK10E=ok', () => {
+  it('10% + B3-industrializacao + CNAE industrial (from cnpjInfoMap) → OK, CK10E=ok', () => {
     const item = makeItem({ pICMS: 10 });
     const dest = makeDest({ uf: 'SC', cnpj: '12345678000199' });
     const config = makeConfig();
@@ -215,16 +230,16 @@ describe('cross-checks 10% (OR: industrial OU CNAE)', () => {
       cnaesSecundarios: [],
       isIndustrial: true,
     }]]);
-    const { result, crossChecks } = validarAliquota(item, CENARIOS['B3']!, dest, config, cnpjInfoMap);
+    const { result, crossChecks } = validarAliquota(item, CENARIOS['B3-industrializacao']!, dest, config, cnpjInfoMap);
     expect(result.status).toBe('OK');
     expect(crossChecks.find(c => c.regra === 'CK10E')?.severity).toBe('ok');
   });
 
-  it('10% + B3 + not industrial → DIVERGENCIA, both OR=divergente', () => {
+  it('10% + B3-industrializacao + not industrial → DIVERGENCIA, both OR=divergente', () => {
     const item = makeItem({ pICMS: 10 });
     const dest = makeDest({ uf: 'SC' });
     const config = makeConfig();
-    const { result, crossChecks } = validarAliquota(item, CENARIOS['B3']!, dest, config);
+    const { result, crossChecks } = validarAliquota(item, CENARIOS['B3-industrializacao']!, dest, config);
     expect(result.status).toBe('DIVERGENCIA');
     expect(crossChecks.find(c => c.regra === 'CK10B')?.severity).toBe('divergente');
     expect(crossChecks.find(c => c.regra === 'CK10E')?.severity).toBe('divergente');
@@ -480,7 +495,7 @@ describe('v3 — B2-Industrial: CAMEX prevalece, só aceita 12%', () => {
   });
 });
 
-describe('v3 — B4-CAMEX: SN + ST + CAMEX aceita alíquota integral [12, 17, 25]', () => {
+describe('v3 — B4-CAMEX: SN + ST + CAMEX aceita alíquota integral [12, 17]', () => {
   it('B4-CAMEX com 12% → OK', () => {
     const item = makeItem({ pICMS: 12, cstOrig: '6', cCredPresumido: 'CP123' });
     const dest = makeDest({ uf: 'SC', cnpj: '12345678000199' });
@@ -498,7 +513,9 @@ describe('v3 — B4-CAMEX: SN + ST + CAMEX aceita alíquota integral [12, 17, 25
     expect(['OK', 'AVISO']).toContain(result.status);
   });
 
-  it('B4-CAMEX com 25% → OK (alíquota integral interna)', () => {
+  it('B4-CAMEX com 25% → OK (v3.2: catch-all aceita [12, 17, 25] para aplicacao indeterminada)', () => {
+    // v3.2: B4-CAMEX catch-all (aplicacao nao conhecida) aceita [12, 17, 25]
+    // 25% e alternativa valida para uso_consumo/ativo ou supperfluos
     const item = makeItem({ pICMS: 25, cstOrig: '6', cCredPresumido: 'CP123' });
     const dest = makeDest({ uf: 'SC', cnpj: '12345678000199' });
     const cfg = makeConfig({ listaSN: ['12345678000199'] });
@@ -515,7 +532,7 @@ describe('v3 — B4-CAMEX: SN + ST + CAMEX aceita alíquota integral [12, 17, 25
   });
 });
 
-describe('v3 — B5: SN sem ST aceita [12, 17, 25], rejeita 7% e 8.80%', () => {
+describe('v3 — B5: SN sem ST aceita [12, 17], rejeita 7% e 8.80%', () => {
   it('B5 com 7% → ERRO (removido v3)', () => {
     const item = makeItem({ pICMS: 7, cstOrig: '1' });
     const dest = makeDest({ uf: 'SC', cnpj: '12345678000199' });
@@ -534,11 +551,12 @@ describe('v3 — B5: SN sem ST aceita [12, 17, 25], rejeita 7% e 8.80%', () => {
 });
 
 describe('v3 — B6/B6-CAMEX: PJ NC split por CAMEX', () => {
-  it('B6 sem CAMEX com 7% → OK (alternativa v3 I05)', () => {
+  it('B6 sem CAMEX com 7% → ERRO (v3.2: B6 = [17, 25], 7% nao e padrao)', () => {
+    // v3.2: B6 primaria [17] + alternativa [25]. 7% removido (nao e padrao NC)
     const item = makeItem({ pICMS: 7, cstOrig: '1', cst: '100', cCredPresumido: 'CP123' });
     const dest = makeDest({ uf: 'SC', indIEDest: '9' });
     const { result } = validarAliquota(item, CENARIOS['B6']!, dest, makeConfig());
-    expect(result.status).toBe('OK');
+    expect(result.status).toBe('ERRO');
   });
 
   it('B6 com 8.80% → ERRO (removido v3)', () => {
@@ -574,7 +592,7 @@ describe('v3 — B6/B6-CAMEX: PJ NC split por CAMEX', () => {
 
 describe('v3 — CAMEX override: não estreita alíquotas para operações internas', () => {
   it('B4-CAMEX interno SC com multi-rate não sofre narrowing', () => {
-    // Bug fix: antes o narrowing transformaria [12, 17, 25] em [7] para SC
+    // Bug fix: antes o narrowing transformaria [12, 17] em [7] para SC
     const item = makeItem({ pICMS: 17, cstOrig: '6' });
     const dest = makeDest({ uf: 'SC', cnpj: '12345678000199' });
     const cfg = makeConfig({ listaSN: ['12345678000199'] });

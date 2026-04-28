@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
 
 import type { NfeValidation, ActiveFilters, StatusType, CnpjInfo } from './types/validation.ts';
 import type { AppConfig } from './types/config.ts';
@@ -16,25 +16,50 @@ import { DropZone } from './components/DropZone.tsx';
 import { Dashboard } from './components/Dashboard.tsx';
 
 import { GroupingPanel } from './components/GroupingPanel.tsx';
+
 import { CnpjLookupPanel } from './components/CnpjLookupPanel.tsx';
 import { CenarioLegend } from './components/CenarioLegend.tsx';
 import { AuditWorkspace } from './components/audit/AuditWorkspace.tsx';
-import { CadastrosPage } from './components/CadastrosPage.tsx';
-import { SimuladorPage } from './components/SimuladorPage.tsx';
-import { RegrasPage } from './components/RegrasPage.tsx';
 import { HistoricoPanel } from './components/HistoricoPanel.tsx';
-import { ReconciliacaoPanel } from './components/ReconciliacaoPanel.tsx';
-import { ApuracaoTTDPage } from './components/ApuracaoTTDPage.tsx';
-import { CrossValidationPanel } from './components/CrossValidationPanel.tsx';
 import { loadFullAppConfig, type EmpresaCadastro } from './firebase/configService.ts';
 import { salvarAuditoria } from './firebase/auditoriaService.ts';
-import { getDefaultRegras } from './data/defaultRegras.ts';
-import { getRegrasFromFirestore } from './firebase/regrasService.ts';
-import type { RegrasConfig } from './types/regras.ts';
+import { REGRAS } from './data/defaultRegras.ts';
 import { commitHash } from 'virtual:git-hash';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sidebar } from './components/layout/Sidebar.tsx';
 import { TopBar } from './components/layout/TopBar.tsx';
+
+const loadCadastrosPage = () => import('./components/CadastrosPage.tsx');
+const loadSimuladorPage = () => import('./components/SimuladorPage.tsx');
+const loadRegrasPage = () => import('./components/RegrasPage.tsx');
+const loadReconciliacaoPanel = () => import('./components/ReconciliacaoPanel.tsx');
+const loadApuracaoTTDPage = () => import('./components/ApuracaoTTDPage.tsx');
+const loadCrossValidationPanel = () => import('./components/CrossValidationPanel.tsx');
+
+const CadastrosPage = lazy(async () => {
+  const module = await loadCadastrosPage();
+  return { default: module.CadastrosPage };
+});
+const SimuladorPage = lazy(async () => {
+  const module = await loadSimuladorPage();
+  return { default: module.SimuladorPage };
+});
+const RegrasPage = lazy(async () => {
+  const module = await loadRegrasPage();
+  return { default: module.RegrasPage };
+});
+const ReconciliacaoPanel = lazy(async () => {
+  const module = await loadReconciliacaoPanel();
+  return { default: module.ReconciliacaoPanel };
+});
+const ApuracaoTTDPage = lazy(async () => {
+  const module = await loadApuracaoTTDPage();
+  return { default: module.ApuracaoTTDPage };
+});
+const CrossValidationPanel = lazy(async () => {
+  const module = await loadCrossValidationPanel();
+  return { default: module.CrossValidationPanel };
+});
 
 const ALLOWED_CFOPS = new Set(['5949', '6949', '5102', '6102']);
 
@@ -88,9 +113,27 @@ interface ParseError {
 
 export type ActiveView = 'auditor' | 'cadastros' | 'simulador' | 'regras' | 'reconciliacao' | 'apuracao_ttd' | 'cross_validation';
 
+const VIEW_PRELOADERS: Partial<Record<ActiveView, () => Promise<unknown>>> = {
+  cadastros: loadCadastrosPage,
+  simulador: loadSimuladorPage,
+  regras: loadRegrasPage,
+  reconciliacao: loadReconciliacaoPanel,
+  apuracao_ttd: loadApuracaoTTDPage,
+  cross_validation: loadCrossValidationPanel,
+};
+
+function ViewLoadingFallback() {
+  return (
+    <div className="space-y-4 py-8">
+      <Skeleton className="h-8 w-56 rounded-xl" />
+      <Skeleton className="h-24 rounded-xl" />
+      <Skeleton className="h-48 rounded-xl" />
+    </div>
+  );
+}
+
 export default function App() {
   const [config, setConfig] = useState<AppConfig>(getDefaultConfig);
-  const [regras, setRegras] = useState<RegrasConfig>(getDefaultRegras);
   const [empresas, setEmpresas] = useState<EmpresaCadastro[]>([]);
   const [configLoading, setConfigLoading] = useState(true);
   const [results, setResults] = useState<NfeValidation[]>([]);
@@ -104,9 +147,6 @@ export default function App() {
   const [discardedByCfop, setDiscardedByCfop] = useState(0);
   const [discardedZero, setDiscardedZero] = useState(0);
   const [discardedDuplicates, setDiscardedDuplicates] = useState(0);
-  const [, setDiscardedCanceladas] = useState(0);
-  const [, setDiscardedSemTtd] = useState(0);
-  const [, setDiscardedEstornos] = useState(0);
   const [historicoRefreshKey, setHistoricoRefreshKey] = useState(0);
   const [efdData, setEfdData] = useState<EfdData | null>(null);
   const [efdParseError, setEfdParseError] = useState<string | null>(null);
@@ -116,6 +156,17 @@ export default function App() {
   configRef.current = config;
   const resultsRef = useRef(results);
   resultsRef.current = results;
+  const preloadedViewsRef = useRef<Set<ActiveView>>(new Set(['auditor']));
+
+  const preloadView = useCallback((view: ActiveView) => {
+    if (preloadedViewsRef.current.has(view)) return;
+
+    const loader = VIEW_PRELOADERS[view];
+    if (!loader) return;
+
+    preloadedViewsRef.current.add(view);
+    void loader();
+  }, []);
 
   const reloadFromFirebase = useCallback(async () => {
     try {
@@ -141,13 +192,6 @@ export default function App() {
       console.error('[Firebase] Erro ao carregar config:', err);
     }
 
-    // Regras loaded separately — failure here must not break config loading
-    try {
-      const regrasFromFirestore = await getRegrasFromFirestore();
-      if (regrasFromFirestore) setRegras(regrasFromFirestore);
-    } catch (err) {
-      console.error('[Firebase] Erro ao carregar regras:', err);
-    }
   }, []);
 
   useEffect(() => {
@@ -159,10 +203,34 @@ export default function App() {
   }, [reloadFromFirebase]);
 
   useEffect(() => {
+    const viewsToWarm: ActiveView[] = ['simulador', 'cadastros', 'regras'];
+    const run = () => {
+      for (const view of viewsToWarm) preloadView(view);
+    };
+
+    const win = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    if (typeof win.requestIdleCallback === 'function') {
+      const idleId = win.requestIdleCallback(run, { timeout: 1500 });
+      return () => {
+        if (typeof win.cancelIdleCallback === 'function') {
+          win.cancelIdleCallback(idleId);
+        }
+      };
+    }
+
+    const timeoutId = window.setTimeout(run, 800);
+    return () => window.clearTimeout(timeoutId);
+  }, [preloadView]);
+
+  useEffect(() => {
     if (rawNfes.length === 0) return;
 
     // Re-aplica filtros + validação quando config/regras/cnpjInfoMap mudam
-    const { accepted: postFilters, counts } = filtrarNfes(rawNfes, canceladasSet);
+    const { accepted: postFilters } = filtrarNfes(rawNfes, canceladasSet);
 
     let cfopDisc = 0;
     let zeroDisc = 0;
@@ -174,13 +242,10 @@ export default function App() {
       else accepted.push(nfe);
     }
 
-    setResults(accepted.map(nfe => validarNfe(nfe, config, cnpjInfoMap, regras)));
+    setResults(accepted.map(nfe => validarNfe(nfe, config, cnpjInfoMap, REGRAS)));
     setDiscardedByCfop(cfopDisc);
     setDiscardedZero(zeroDisc);
-    setDiscardedCanceladas(counts.canceladas);
-    setDiscardedSemTtd(counts.semTtd);
-    setDiscardedEstornos(counts.estornoPar);
-  }, [config, cnpjInfoMap, regras, rawNfes, canceladasSet]);
+  }, [config, cnpjInfoMap, rawNfes, canceladasSet]);
 
   // Cross-validation: trigger when both XML and EFD data are available
   useEffect(() => {
@@ -268,7 +333,7 @@ export default function App() {
       }
 
       // FILTROS 1+2+3 — canceladas, estornos (sobre pool completo), sem TTD
-      const { accepted: postFilters, counts } = filtrarNfes(allParsed, canceladas);
+      const { accepted: postFilters } = filtrarNfes(allParsed, canceladas);
 
       // Agora aplicar filtros de CFOP/valor sobre as NFs que passaram
       const accepted: import('./types/nfe.ts').NfeData[] = [];
@@ -286,7 +351,7 @@ export default function App() {
 
       // Validar apenas as NFs que passaram em todos os filtros
       const newResults = accepted.map(nfe =>
-        validarNfe(nfe, config, cnpjInfoMap, regras),
+        validarNfe(nfe, config, cnpjInfoMap, REGRAS),
       );
 
       // Guardar dados brutos para reprocessamento
@@ -302,9 +367,6 @@ export default function App() {
       setDiscardedByCfop(prev => prev + cfopDiscarded);
       setDiscardedZero(prev => prev + zeroDiscarded);
       setDiscardedDuplicates(prev => prev + duplicatedCount);
-      setDiscardedCanceladas(prev => prev + counts.canceladas);
-      setDiscardedSemTtd(prev => prev + counts.semTtd);
-      setDiscardedEstornos(prev => prev + counts.estornoPar);
       setIsProcessing(false);
 
       if (newResults.length > 0) {
@@ -316,7 +378,7 @@ export default function App() {
         }
       }
     },
-    [config, cnpjInfoMap, regras],
+    [config, cnpjInfoMap],
   );
 
   const handleClear = () => {
@@ -329,9 +391,6 @@ export default function App() {
     setDiscardedByCfop(0);
     setDiscardedZero(0);
     setDiscardedDuplicates(0);
-    setDiscardedCanceladas(0);
-    setDiscardedSemTtd(0);
-    setDiscardedEstornos(0);
     setEfdData(null);
     setEfdParseError(null);
     setCrossValidation(null);
@@ -341,7 +400,7 @@ export default function App() {
     if (rawNfes.length === 0) return;
 
     // Reaplicar TODOS os filtros desde os dados brutos
-    const { accepted: postFilters, counts } = filtrarNfes(rawNfes, canceladasSet);
+    const { accepted: postFilters } = filtrarNfes(rawNfes, canceladasSet);
 
     let cfopDisc = 0;
     let zeroDisc = 0;
@@ -354,17 +413,14 @@ export default function App() {
     }
 
     const newResults = accepted.map(nfe =>
-      validarNfe(nfe, config, cnpjInfoMap, regras),
+      validarNfe(nfe, config, cnpjInfoMap, REGRAS),
     );
 
     setResults(newResults);
     setDiscardedByCfop(cfopDisc);
     setDiscardedZero(zeroDisc);
     setDiscardedDuplicates(0);
-    setDiscardedCanceladas(counts.canceladas);
-    setDiscardedSemTtd(counts.semTtd);
-    setDiscardedEstornos(counts.estornoPar);
-  }, [rawNfes, canceladasSet, config, cnpjInfoMap, regras]);
+  }, [rawNfes, canceladasSet, config, cnpjInfoMap]);
 
   const handleCnpjInfoLoaded = useCallback((info: CnpjInfo) => {
     setCnpjInfoMap(prev => new Map(prev).set(info.cnpj, info));
@@ -430,7 +486,7 @@ export default function App() {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-neutral-50 to-indigo-50/30">
+    <div className="flex h-screen overflow-hidden bg-background">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-lg"
@@ -443,6 +499,7 @@ export default function App() {
         activeView={activeView} 
         setActiveView={setActiveView} 
         buildTimestamp={commitHash}
+        onViewIntent={preloadView}
       />
 
       <div className="flex-1 flex flex-col lg:ml-[260px]">
@@ -450,7 +507,7 @@ export default function App() {
         <TopBar
           activeView={activeView}
           results={results}
-          regras={regras}
+          regras={REGRAS}
           config={config}
           cnpjInfoMap={cnpjInfoMap}
           onReprocess={handleReprocess}
@@ -472,30 +529,42 @@ export default function App() {
             </div>
           </div>
         ) : activeView === 'regras' ? (
-          <RegrasPage onRegrasChanged={setRegras} />
+          <Suspense fallback={<ViewLoadingFallback />}>
+            <RegrasPage />
+          </Suspense>
         ) : activeView === 'cadastros' ? (
-          <CadastrosPage onConfigChanged={handleEmpresasUpdated} />
+          <Suspense fallback={<ViewLoadingFallback />}>
+            <CadastrosPage onConfigChanged={handleEmpresasUpdated} />
+          </Suspense>
         ) : activeView === 'simulador' ? (
-          <SimuladorPage
-            config={config}
-            regras={regras}
-            empresas={empresas}
-            cnpjInfoMap={cnpjInfoMap}
-            onCnpjInfoLoaded={handleCnpjInfoLoaded}
-          />
+          <Suspense fallback={<ViewLoadingFallback />}>
+            <SimuladorPage
+              config={config}
+              regras={REGRAS}
+              empresas={empresas}
+              cnpjInfoMap={cnpjInfoMap}
+              onCnpjInfoLoaded={handleCnpjInfoLoaded}
+            />
+          </Suspense>
         ) : activeView === 'reconciliacao' ? (
-          <ReconciliacaoPanel results={results} regras={regras} config={config} />
+          <Suspense fallback={<ViewLoadingFallback />}>
+            <ReconciliacaoPanel results={results} regras={REGRAS} config={config} />
+          </Suspense>
         ) : activeView === 'apuracao_ttd' ? (
-          <ApuracaoTTDPage results={results} regras={regras} config={config} />
+          <Suspense fallback={<ViewLoadingFallback />}>
+            <ApuracaoTTDPage results={results} regras={REGRAS} config={config} />
+          </Suspense>
         ) : activeView === 'cross_validation' ? (
-          <CrossValidationPanel
-            crossValidation={crossValidation}
-            efdData={efdData}
-            efdParseError={efdParseError}
-            rawNfes={rawNfes}
-            onFiles={handleFiles}
-            isProcessing={isProcessing}
-          />
+          <Suspense fallback={<ViewLoadingFallback />}>
+            <CrossValidationPanel
+              crossValidation={crossValidation}
+              efdData={efdData}
+              efdParseError={efdParseError}
+              rawNfes={rawNfes}
+              onFiles={handleFiles}
+              isProcessing={isProcessing}
+            />
+          </Suspense>
         ) : (
           <div className="space-y-3">
             {/* Page Header */}
@@ -515,7 +584,7 @@ export default function App() {
               discardedZero={discardedZero}
               discardedDuplicates={discardedDuplicates}
               config={config}
-              regras={regras}
+              regras={REGRAS}
             />
 
             {results.length > 0 && (
@@ -541,10 +610,10 @@ export default function App() {
                   results={results}
                   filters={filters}
                   cnpjInfoMap={cnpjInfoMap}
-                  regras={regras}
+                  regras={REGRAS}
                 />
 
-                <CenarioLegend regras={regras} />
+                <CenarioLegend regras={REGRAS} />
               </>
             )}
           </div>

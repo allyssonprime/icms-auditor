@@ -136,7 +136,7 @@ export function CenarioLegend({ regras, defaultOpen = false }: CenarioLegendProp
   const tree = useMemo(() => buildTree(r), [r]);
 
   return (
-    <Card className="rounded-xl shadow-sm mb-3">
+    <Card className="mb-3">
       <Button
         variant="ghost"
         onClick={() => setOpen(!open)}
@@ -242,7 +242,7 @@ function CenarioRow({ cenario, isLast }: { cenario: TreeCenario; isLast: boolean
       </span>
 
       {/* Cenario ID */}
-      <Badge className="font-mono font-bold text-[10px] px-1.5 py-0 bg-primary-50 text-primary-700 border-primary-100 mr-2 shrink-0">
+      <Badge variant="outline" className="font-mono font-bold text-[10px] px-1.5 py-0 mr-2 shrink-0">
         {cenario.id}
       </Badge>
 
@@ -264,7 +264,7 @@ function CenarioRow({ cenario, isLast }: { cenario: TreeCenario; isLast: boolean
       {/* CP */}
       <span className="w-[24px] text-center shrink-0 mr-2">
         {cenario.temCP ? (
-          <span className="text-purple-600 font-semibold">✓</span>
+          <span className="text-[var(--success)] font-semibold">✓</span>
         ) : (
           <span className="text-muted-foreground">✗</span>
         )}
@@ -282,8 +282,8 @@ function SpecialRow({ id, desc, color }: { id: string; desc: string; color: stri
   const connector = id === 'DESCONHECIDO' ? '└' : '├';
 
   const colorClasses: Record<string, string> = {
-    sky: 'text-sky-700',
-    danger: 'text-red-600',
+    sky: 'text-[var(--info)]',
+    danger: 'text-destructive',
     muted: 'text-muted-foreground',
   };
 

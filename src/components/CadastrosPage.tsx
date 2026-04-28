@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
+import { PageHeader } from './layout/PageHeader.tsx';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -94,15 +95,10 @@ export function CadastrosPage({ onConfigChanged }: CadastrosPageProps) {
 
   return (
     <div className="max-w-[1200px] mx-auto space-y-3">
-      {/* Page Header */}
-      <div>
-        <h2 className="text-2xl font-bold font-heading text-foreground tracking-tight">
-          Gerenciamento de Cadastros
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Gerencie empresas, listas NCM e restricoes da legislacao (vedacoes e CD)
-        </p>
-      </div>
+      <PageHeader
+        title="Gerenciamento de Cadastros"
+        breadcrumb={<span>Gerencie empresas, listas NCM e restrições da legislação (vedações e CD)</span>}
+      />
 
       {/* Tabs Section */}
       <Card className="shadow-card border-0 overflow-hidden">
@@ -387,7 +383,7 @@ function EmpresasTab({
                       {e.simplesOptante === null && <span className="text-muted-foreground">-</span>}
                     </TableCell>
                     <TableCell className="text-center">
-                      {e.isMei === true && <Badge variant="secondary" className="text-[10px]">Sim</Badge>}
+                      {e.isMei === true && <Badge variant="warning" className="text-[10px]">Sim</Badge>}
                       {e.isMei === false && <span className="text-muted-foreground">Nao</span>}
                       {e.isMei === null && <span className="text-muted-foreground">-</span>}
                     </TableCell>

@@ -12,8 +12,8 @@ const PAGE_SIZE = 50;
 interface AuditLedgerProps {
   results: NfeValidation[];
   cnpjInfoMap?: Map<string, CnpjInfo>;
-  selectedIdx: number | null;
-  onSelect: (idx: number) => void;
+  selectedNf: NfeValidation | null;
+  onSelect: (nfe: NfeValidation) => void;
 }
 
 const statusPill: Record<string, string> = {
@@ -52,7 +52,7 @@ function sortNfes(data: NfeValidation[], key: SortKey, dir: SortDir): NfeValidat
   });
 }
 
-export function AuditLedger({ results, cnpjInfoMap, selectedIdx, onSelect }: AuditLedgerProps) {
+export function AuditLedger({ results, cnpjInfoMap, selectedNf, onSelect }: AuditLedgerProps) {
   const [sortKey, setSortKey] = useState<SortKey>('bc');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(0);
@@ -110,13 +110,13 @@ export function AuditLedger({ results, cnpjInfoMap, selectedIdx, onSelect }: Aud
           <tbody className="divide-y divide-slate-50">
             {pageData.map((v, idx) => {
               const globalIdx = safePage * PAGE_SIZE + idx;
-              const isSelected = selectedIdx === globalIdx;
+              const isSelected = selectedNf === v;
               const info = v.nfe.dest.cnpj ? cnpjInfoMap?.get(v.nfe.dest.cnpj.replace(/\D/g, '')) : undefined;
               const hasProblem = v.statusFinal === 'DIVERGENCIA' || v.statusFinal === 'ERRO';
               return (
                 <tr
                   key={globalIdx}
-                  onClick={() => onSelect(globalIdx)}
+                  onClick={() => onSelect(v)}
                   className={cn(
                     'h-8 hover:bg-primary/5 cursor-pointer transition-colors',
                     isSelected && 'bg-blue-50/50',

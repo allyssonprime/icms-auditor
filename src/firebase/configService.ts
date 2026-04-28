@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, deleteField } from 'firebase/firestore';
 import { db } from './config.ts';
 
 // === NCM Lists (config/ncmLists) ===
@@ -205,8 +205,6 @@ export async function setIndustrialOverride(cnpj: string, override: boolean | un
   try {
     const ref = doc(db, 'empresas', cnpj);
     if (override === undefined) {
-      // Remove the override field — use deleteField
-      const { deleteField } = await import('firebase/firestore');
       await setDoc(ref, { industrialOverride: deleteField() }, { merge: true });
     } else {
       await setDoc(ref, { industrialOverride: override }, { merge: true });

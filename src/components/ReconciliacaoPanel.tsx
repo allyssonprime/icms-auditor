@@ -4,7 +4,6 @@ import type { RegrasConfig } from '../types/regras.ts';
 import type { AppConfig } from '../types/config.ts';
 import { buildReconciliacao } from '../engine/reconciliacao.ts';
 import { buildApuracaoMensal, confrontarContabilidade, type DadosContabilidade } from '../engine/apuracao.ts';
-import { exportPlanilha77 } from '../utils/exportExcel.ts';
 import { getDefaultRegras } from '../data/defaultRegras.ts';
 import { formatCurrency } from '../utils/formatters.ts';
 import { AlertTriangle, CheckCircle2, CircleAlert, Download, XCircle } from 'lucide-react';
@@ -57,16 +56,17 @@ export function ReconciliacaoPanel({ results, regras, config }: ReconciliacaoPan
       const c = config ?? {
         decreto2128: [],
         listaCamex: [],
-        listaCamex210: [],
         listaCobreAco: [],
         listaSN: [],
         listaIndustriais: [],
         listaCD: [],
         listaVedacao25a: [],
         listaVedacao25b: [],
+        listaCamex210: [],
         ufAliquotas: {},
         aliquotasInternasValidas: [],
       };
+      const { exportPlanilha77 } = await import('../utils/exportExcel.ts');
       await exportPlanilha77(results, r, c, {
         periodo: apuracao.periodo || undefined,
         contabilidade: hasContab ? dadosContab : undefined,
@@ -82,7 +82,6 @@ export function ReconciliacaoPanel({ results, regras, config }: ReconciliacaoPan
   const {
     porTTD, porCP,
     totalGeralBC, totalGeralICMSRecolher, totalGeralFundos, totalGeralRecolherComFundos,
-    totalGeralICMSRecolher21, totalGeralRecolherComFundos21, temCAMEX,
   } = reconciliacao;
 
   return (
@@ -105,14 +104,8 @@ export function ReconciliacaoPanel({ results, regras, config }: ReconciliacaoPan
                   <TableHead className="text-right px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">ICMS Dest.</TableHead>
                   <TableHead className="text-right px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Carga %</TableHead>
                   <TableHead className="text-right px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">ICMS Recolher</TableHead>
-                  {temCAMEX && (
-                    <TableHead className="text-right px-3 py-2 text-[10px] font-semibold text-amber-700 uppercase tracking-wider" title="Alternativa CAMEX 2,1%">Recolher 2,1%</TableHead>
-                  )}
                   <TableHead className="text-right px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Fundos</TableHead>
                   <TableHead className="text-right px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Total</TableHead>
-                  {temCAMEX && (
-                    <TableHead className="text-right px-3 py-2 text-[10px] font-semibold text-amber-700 uppercase tracking-wider" title="Total com CAMEX 2,1%">Total 2,1%</TableHead>
-                  )}
                   <TableHead className="text-center px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -127,18 +120,8 @@ export function ReconciliacaoPanel({ results, regras, config }: ReconciliacaoPan
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatCurrency(t.totalICMSDestacado)}</TableCell>
                     <TableCell className="px-3 py-2 text-right text-muted-foreground">{t.cargaEfetiva < 0 ? 'N/A' : t.cargaEfetiva > 0 ? `${t.cargaEfetiva}%` : '-'}</TableCell>
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums text-primary">{formatCurrency(t.totalICMSRecolher)}</TableCell>
-                    {temCAMEX && (
-                      <TableCell className={cn('px-3 py-2 text-right font-mono tabular-nums', t.temCAMEX ? 'text-amber-700' : 'text-muted-foreground/50')}>
-                        {t.temCAMEX ? formatCurrency(t.totalICMSRecolher21) : '—'}
-                      </TableCell>
-                    )}
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatCurrency(t.totalFundos)}</TableCell>
                     <TableCell className="px-3 py-2 text-right font-mono tabular-nums font-semibold">{formatCurrency(t.totalRecolherComFundos)}</TableCell>
-                    {temCAMEX && (
-                      <TableCell className={cn('px-3 py-2 text-right font-mono tabular-nums font-semibold', t.temCAMEX ? 'text-amber-700' : 'text-muted-foreground/50')}>
-                        {t.temCAMEX ? formatCurrency(t.totalRecolherComFundos21) : '—'}
-                      </TableCell>
-                    )}
                     <TableCell className="px-3 py-2 text-center">
                       {t.temDivergencia && (
                         <AlertTriangle size={14} className="text-orange-500 inline-block" aria-label="Itens com divergencia neste regime" />
@@ -154,14 +137,8 @@ export function ReconciliacaoPanel({ results, regras, config }: ReconciliacaoPan
                   <TableCell className="px-3 py-2" />
                   <TableCell className="px-3 py-2" />
                   <TableCell className="px-3 py-2 text-right font-mono tabular-nums text-primary">{formatCurrency(totalGeralICMSRecolher)}</TableCell>
-                  {temCAMEX && (
-                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums text-amber-700">{formatCurrency(totalGeralICMSRecolher21)}</TableCell>
-                  )}
                   <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatCurrency(totalGeralFundos)}</TableCell>
                   <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{formatCurrency(totalGeralRecolherComFundos)}</TableCell>
-                  {temCAMEX && (
-                    <TableCell className="px-3 py-2 text-right font-mono tabular-nums text-amber-700">{formatCurrency(totalGeralRecolherComFundos21)}</TableCell>
-                  )}
                   <TableCell className="px-3 py-2" />
                 </TableRow>
               </TableFooter>

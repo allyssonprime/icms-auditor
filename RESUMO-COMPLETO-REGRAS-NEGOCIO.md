@@ -54,8 +54,10 @@ Para cada item da NF-e, o engine calcula 8 campos derivados:
 | **A5** | PJ NC com CAMEX | pj_nc | Sim | 12%, 7% | 3,6% | 0,4% | Sim | 90 | 6101,6102,6107,6108 | 1.2.b.3 |
 | **A6** | PF sem CAMEX | pf | Não | 4% | 1,0% | 0,4% | Sim | 90 | 6101,6102,6107,6108 | 1.2.a + 1.25 |
 | **A7** | PF com CAMEX | pf | Sim | 12%, 7% | 3,6% | 0,4% | Sim | 90 | 6101,6102,6107,6108 | 1.2.b.3 |
-| **A8** | Cobre/Aço contribuinte | contribuinte | Não | 4% | **0,6%** | 0,4% | Sim | 90 | 6101,6102,6106,6107 | 1.2.a.1 |
+| ~~**A8**~~ | ~~Cobre/Aço contribuinte~~ | — | — | — | — | — | — | — | — | — |
 | **A9** | Transferência interestadual | qualquer | — | 4%, 12%, 7% | 1,0% | 0,4% | Sim | 90 | 6152,6155 | 1.6 |
+
+> **A8 desativado na v3**: cobre/aço passou a ser modificador (M01) aplicado sobre A1 (override de `cargaEfetiva` para 0,6%), não um cenário separado. O grupo `G-INTER-COBREACO` em [src/data/defaultRegras.ts](src/data/defaultRegras.ts) está com `ativo: false`.
 
 ### 4.2 Série B — Internas (SC → SC)
 
@@ -299,8 +301,8 @@ Agrupa itens por **refTTD** e calcula totais:
 | B10 | "Destinatário têxtil/confecções (art. 15, XXXIX) — obrigatório 10%." |
 | B11 | "CD Exclusivo (Booster) — enviar comunicação ao CD." |
 | B12 | "Transferência interna para filial SC — diferido, sem CP." |
-| A8 | "Cobre/Aço — carga efetiva 0,6% (não 1,0%)." |
 | A9 | "Transferência interestadual — equivale a comercialização (art. 246, §17). CP se aplica." |
+| Cobre/Aço (M01) | "Modificador sobre A1: carga efetiva 0,6% em vez de 1,0% (item 1.2.a.1 TTD)." |
 | DEVOLUCAO | "Estornar CP (item 1.20 TTD). Fundos: creditar via DCIP 54." |
 | DESCONHECIDO | "Cenário não identificado — verificar manualmente." |
 | Fundos > 0 | "Fundos 0,4% sobre BC integral (FUMDES + FIA — Portaria SEF 143/2022)." |
@@ -350,78 +352,103 @@ Dentro de cada grupo, ramificações também são avaliadas por prioridade + esp
 
 ```
 src/engine/
-├── validator.ts       → Orquestrador principal (5 estágios)
+├── validator.ts       → Orquestrador principal (estágios de validação)
 ├── classifier.ts      → Classificação de cenário (campos derivados + matching)
 ├── aliquota.ts        → Validação de alíquota + cross-checks
 ├── cst.ts             → Validação de CST
 ├── cfop.ts            → Validação de CFOP
-├── vedacoes.ts        → Regras bloqueantes
+├── vedacoes.ts        → Regras bloqueantes (Decreto 2.128, CFOPs 5922/6922)
+├── bcValidation.ts    → Validação da Base de Cálculo (vs vProd + acessórios)
+├── cpValidation.ts    → Validação do Crédito Presumido
+├── infCplValidation.ts→ Validação do texto em infCpl (CST, BC, CP)
+├── crossValidator.ts  → Cross-checks agregados (CK12/CK10/CK04/CK17)
 ├── cenarios.ts        → Expansão de regras em mapa de cenários
-├── reconciliacao.ts   → Agregação para DIME
+├── apuracao.ts        → Apuração mensal consolidada
+├── apuracaoTTD.ts     → Consolidação específica TTD 410
+├── fundosTTD.ts       → Cálculo de fundos (FUMDES + FIA)
+├── reconciliacao.ts   → Reconciliação com DIME/escrituração
+├── calculoHelpers.ts  → Helpers de cálculo (ICMS, CP, BC)
+├── nfeFilters.ts      → Filtros de NF-e por critérios
+├── efdParser.ts       → Parser de arquivos SPED/EFD
 ├── cnpjService.ts     → Consulta CNPJ (OpenCNPJ/CNPJa)
+├── cnpjaClient.ts     → Cliente HTTP CNPJa
 └── parser.ts          → Parse de XML NF-e
 
 src/simulator/
 ├── index.ts           → Motor do simulador
-└── calculator.ts      → Cálculos TTD (fórmulas)
+├── calculator.ts      → Cálculos TTD (fórmulas)
+└── companyLookup.ts   → Busca de empresa para simulação
 
 src/types/
-├── validation.ts      → StatusType, ValidationResult, ItemValidation, NfeValidation
+├── validation.ts      → StatusType ('OK'|'INFO'|'AVISO'|'DIVERGENCIA'|'ERRO'), ValidationResult, ItemValidation, NfeValidation
 ├── regras.ts          → GrupoRegra, Ramificacao, VedacaoRule, RegrasConfig
 ├── cenario.ts         → CenarioConfig
 ├── config.ts          → AppConfig
-└── nfe.ts             → NfeData, ItemData, DestData
+├── crossValidation.ts → Tipos de cross-checks
+├── efd.ts             → Tipos de SPED/EFD
+├── empresa.ts         → Cadastro de empresa
+├── auditoria.ts       → Persistência de auditoria
+└── nfe.ts             → NfeData, ItemData, DestData (inclui vFrete/vSeg/vOutro/totais)
 
 src/data/
-├── defaultRegras.ts   → Regras padrão completas (15 grupos, 22 cenários)
-├── decreto2128.ts     → NCMs vedadas (27 prefixos)
+├── defaultRegras.ts   → Regras padrão completas (grupos, ramificações, 22 cenários) — HARDCODED
+├── decreto2128.ts     → NCMs vedadas (27 prefixos) — HARDCODED
 ├── cobreAco.ts        → Helper para cobre/aço
+├── camex.ts           → Lista CAMEX fallback
+├── ufAliquotas.ts     → Alíquotas interestaduais por UF
 └── aliquotasInternas.ts → Alíquotas internas válidas [7, 8.80, 12, 17, 25]
 
 src/firebase/
-├── regrasService.ts   → Persistência de regras (Firestore)
-└── configService.ts   → Persistência de config + empresas
+├── config.ts                 → Inicialização Firebase
+├── configService.ts          → Listas NCM (Decreto 2.128, CAMEX, Cobre/Aço)
+├── empresaService.ts         → Cadastro de empresas/CNPJs especiais
+├── camexOverrideService.ts   → Overrides manuais de CAMEX
+└── auditoriaService.ts       → Histórico de auditorias
 
 src/utils/
-└── exportExcel.ts     → Exportação Excel (7 abas)
+├── exportExcel.ts     → Exportação Excel (abas detalhadas)
+└── formatters.ts      → Formatação de números, datas, moeda
 ```
+
+> **Nota (v3)**: desde o PLANO-REGRAS-FIXAS, grupos/ramificações/vedações/config global **não** são mais persistidos em Firestore. `src/hooks/` e `src/firebase/regrasService.ts` foram removidos; [src/data/defaultRegras.ts](src/data/defaultRegras.ts) é a fonte única das regras.
 
 ---
 
 ## 17. O QUE É CONFIGURÁVEL vs HARDCODED
 
-### Configurável (via UI Regras):
-- Grupos de regras (condições, prioridade, ativo/inativo)
-- Ramificações (cenarioId, condições extras, override de valores)
-- Valores esperados (alíquotas, CST, CFOP, cargaEfetiva, fundos, CP, refTTD)
-- Vedações (NCM prefix, CFOP exato, condições operacionais)
-- Config global (ufAliquotas, CFOPs devolução/transferência, fundos padrão)
+> **Mudança na v3** ([PLANO-REGRAS-FIXAS](docs/archive/2026-04-PLANO-REGRAS-FIXAS.md)): grupos, ramificações, vedações e config global deixaram de ser editáveis. Só listas de NCM/CNPJ permanecem em Firestore.
 
-### Configurável (via UI Cadastros):
-- Listas NCM (Decreto 2.128, CAMEX, Cobre/Aço)
-- CNPJs especiais (vedação 25a, 25b, CD exclusivo)
-- Override industrial por empresa
+### Configurável (via UI Cadastros + Firestore):
+- Listas NCM (Decreto 2.128, CAMEX, Cobre/Aço) — `config/ncmLists`
+- CNPJs especiais (vedação 25a, 25b, CD exclusivo) — `config/cnpjOverrides`
+- Override industrial por empresa (`industrialOverride`)
+- Override manual de CAMEX (`camexOverrideService`)
+- Cadastro de empresas (Simples Nacional, CNAE, IE)
 
-### HARDCODED (no código):
+### HARDCODED (em [src/data/defaultRegras.ts](src/data/defaultRegras.ts) e engine):
+- **Grupos de regras** (condições, prioridade, ativo/inativo)
+- **Ramificações** (cenarioId, condições extras, override de valores)
+- **Valores esperados** (alíquotas, CST, CFOP, cargaEfetiva, fundos, CP, refTTD)
+- **Vedações** (NCM prefix, CFOP exato, condições operacionais)
+- **Config global** (ufAliquotas, CFOPs devolução/transferência, fundos padrão)
 - Severidades das validações (ERRO vs AVISO vs DIVERGENCIA)
 - Lógica dos cross-checks (CK12, CK10, CK04, CK17)
-- Override cobre/aço 4% → 0,6%
+- Override cobre/aço 4% → 0,6% (modificador M01)
 - Detecção de devolução por CFOP
 - Classificação industrial por CNAE (divisões 05-33)
 - Tolerância de comparação (0.01)
-- Fluxo de validação (5 estágios em sequência)
+- Fluxo de validação e orquestração
 
 ---
 
 ## 18. GAPS CONHECIDOS PARA 100% DE ACURÁCIA
 
-1. **Severidades não-configuráveis**: O nível de erro (ERRO vs AVISO) está hardcoded — não pode ser ajustado por cenário
-2. **Sem validação de valor total**: Não compara vICMS calculado vs vICMS declarado na NF-e
-3. **Sem validação de BC**: Não verifica se BC está correto em relação ao vProd
-4. **DIFAL não calculado**: Para operações com não-contribuinte, DIFAL não é computado
-5. **Sem histórico de alterações**: Mudanças nas regras não são versionadas
-6. **Fundos fixos em 0,4%**: O percentual de fundos é fixo, não varia por cenário (exceto onde é 0)
-7. **Aplicação (revenda/industrialização) não detectada automaticamente**: No auditor, aplicação é null — ramificações que exigem aplicação específica não casam
-8. **Sem validação de prazos**: Não verifica se a NF-e está dentro do período de vigência do TTD
-9. **Carga efetiva assumida constante**: Não varia por faixa de BC ou período
-10. **Sem reconciliação com SPED/EFD**: Os totais calculados não são confrontados com escrituração fiscal
+> Itens implementados na v3 (removidos desta lista): validação de BC via [bcValidation.ts](src/engine/bcValidation.ts), validação de CP via [cpValidation.ts](src/engine/cpValidation.ts), validação de infCpl via [infCplValidation.ts](src/engine/infCplValidation.ts), apuração mensal via [apuracao.ts](src/engine/apuracao.ts)/[apuracaoTTD.ts](src/engine/apuracaoTTD.ts), reconciliação com DIME/SPED via [reconciliacao.ts](src/engine/reconciliacao.ts)/[efdParser.ts](src/engine/efdParser.ts).
+
+1. **Severidades por cenário**: O nível de erro (ERRO vs AVISO) é único por regra, sem override por cenário específico
+2. **DIFAL não calculado**: Para operações com não-contribuinte, DIFAL não é computado
+3. **Fundos fixos em 0,4%**: O percentual de fundos é fixo, não varia por cenário (exceto onde é 0)
+4. **Aplicação (revenda/industrialização) não detectada automaticamente**: No auditor, aplicação é null — ramificações que exigem aplicação específica não casam
+5. **Sem validação de prazos**: Não verifica se a NF-e está dentro do período de vigência do TTD
+6. **Carga efetiva assumida constante**: Não varia por faixa de BC ou período
+7. **Sem histórico de alterações das listas editáveis**: Mudanças em NCM/CNPJ overrides não são versionadas

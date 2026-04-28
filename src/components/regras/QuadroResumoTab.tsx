@@ -3,6 +3,7 @@ import type { RegrasConfig, CondicoesCenario } from '../../types/regras.ts';
 import { mergeValores } from '../../types/regras.ts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 // ── Tipos ──────────────────────────────────────────────────────
@@ -150,13 +151,13 @@ export function QuadroResumoTab({ regras, onNavigateToGrupo }: QuadroResumoTabPr
     <div className="space-y-6">
       {sections.map(section => (
         <div key={section.key}>
-          <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2 px-1">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1">
             {section.label}
           </h3>
-          <div className="rounded-lg border overflow-hidden">
+          <Card className="overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/50">
+                <TableRow className="bg-surface-low">
                   <TableHead className="w-[70px] text-xs">Cenário</TableHead>
                   <TableHead className="text-xs">Destinatário</TableHead>
                   <TableHead className="w-[60px] text-xs text-center">CAMEX</TableHead>
@@ -185,7 +186,7 @@ export function QuadroResumoTab({ regras, onNavigateToGrupo }: QuadroResumoTabPr
                     <TableCell className="py-1.5 text-xs">{c.destinatario}</TableCell>
                     <TableCell className="py-1.5 text-xs text-center">
                       {c.camex === 'Sim' ? (
-                        <Badge className="bg-amber-100 text-amber-800 text-[10px] px-1">Sim</Badge>
+                        <Badge variant="warning" className="text-[10px] px-1">Sim</Badge>
                       ) : c.camex === 'Não' ? (
                         <span className="text-muted-foreground">Não</span>
                       ) : (
@@ -201,16 +202,16 @@ export function QuadroResumoTab({ regras, onNavigateToGrupo }: QuadroResumoTabPr
                     </TableCell>
                     <TableCell className="py-1.5 text-center">
                       {c.creditoPresumido ? (
-                        <span className="text-green-600 text-xs font-semibold">✓</span>
+                        <span className="text-[var(--success)] text-xs font-semibold">✓</span>
                       ) : (
-                        <span className="text-red-400 text-xs">✗</span>
+                        <span className="text-muted-foreground text-xs">✗</span>
                       )}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </Card>
         </div>
       ))}
 

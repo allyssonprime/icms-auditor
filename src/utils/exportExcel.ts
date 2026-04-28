@@ -908,7 +908,7 @@ export async function exportToExcel(
   // ============================================================
   const reconciliacao = buildReconciliacao(results, regras, config);
   const wsReconc = wb.addWorksheet('Reconciliacao DIME');
-  const baseCols = [
+  wsReconc.columns = [
     { header: 'Ref TTD', key: 'refTTD', width: 12 },
     { header: 'Cenarios', key: 'cenarios', width: 20 },
     { header: 'Descricao', key: 'descricao', width: 35 },
@@ -918,18 +918,10 @@ export async function exportToExcel(
     { header: 'ICMS Destacado (R$)', key: 'icmsDest', width: 18 },
     { header: 'Carga %', key: 'carga', width: 10 },
     { header: 'ICMS Recolher (R$)', key: 'icmsRecolher', width: 18 },
-  ];
-  const camexRecolherCol = { header: 'Recolher 2,1% CAMEX (R$)', key: 'icmsRecolher21', width: 22 };
-  const tailCols = [
     { header: 'Fundos (R$)', key: 'fundos', width: 14 },
     { header: 'Total (R$)', key: 'total', width: 16 },
+    { header: 'Divergencia?', key: 'div', width: 14 },
   ];
-  const camexTotalCol = { header: 'Total 2,1% CAMEX (R$)', key: 'total21', width: 22 };
-  const divCol = { header: 'Divergencia?', key: 'div', width: 14 };
-
-  wsReconc.columns = reconciliacao.temCAMEX
-    ? [...baseCols, camexRecolherCol, ...tailCols, camexTotalCol, divCol]
-    : [...baseCols, ...tailCols, divCol];
 
   reconciliacao.porTTD.forEach(t => {
     const base: Record<string, unknown> = {
@@ -946,15 +938,9 @@ export async function exportToExcel(
       total: t.totalRecolherComFundos,
       div: t.temDivergencia ? 'SIM' : '',
     };
-    if (reconciliacao.temCAMEX) {
-      base.icmsRecolher21 = t.temCAMEX ? t.totalICMSRecolher21 : null;
-      base.total21 = t.temCAMEX ? t.totalRecolherComFundos21 : null;
-    }
     const row = wsReconc.addRow(base);
     // Aplica numFmt nos campos numericos por chave (robusto a ordem de coluna)
-    const moneyKeys = reconciliacao.temCAMEX
-      ? ['totalBC', 'icmsDest', 'icmsRecolher', 'icmsRecolher21', 'fundos', 'total', 'total21']
-      : ['totalBC', 'icmsDest', 'icmsRecolher', 'fundos', 'total'];
+    const moneyKeys = ['totalBC', 'icmsDest', 'icmsRecolher', 'fundos', 'total'];
     moneyKeys.forEach(key => {
       const cell = row.getCell(key);
       cell.numFmt = brlFormat();
@@ -1390,7 +1376,7 @@ import type {
   ApuracaoLinha,
 } from '../engine/apuracaoTTD.ts';
 
-const TTD_NUM_COLS = 9; // Data, Documento, ValContabil, BC, Aliq, vICMS, CP, ICMSRecolher%, ICMSRecolher$
+const TTD_NUM_COLS = 12; // Data, Documento, ValContabil, BC, Aliq, vICMS, CP, ICMSRecolher%, ICMSRecolher$, Fundos, Total, Processo
 
 interface TTDRowContext {
   ws: ExcelJS.Worksheet;
@@ -1461,7 +1447,7 @@ function ttdAddSubgrupoLabel(ctx: TTDRowContext, sg: ApuracaoSubgrupo): void {
 
 function ttdAddTableHeader(ctx: TTDRowContext): void {
   const { ws, cursor } = ctx;
-  const headers = ['Data', 'Documento', 'Valor Contabil', 'Base de Calculo', 'Aliquota', 'Valor ICMS', 'Cred. Presumido', 'ICMS Recolher %', 'ICMS Recolher'];
+  const headers = ['Data', 'Documento', 'Valor Contabil', 'Base de Calculo', 'Aliquota', 'Valor ICMS', 'Cred. Presumido', 'ICMS Recolher %', 'ICMS Recolher', 'Fundos 0,40%', 'Total ICMS+Fundos', 'Processo'];
   const row = ws.getRow(cursor.row);
   headers.forEach((h, idx) => {
     const cell = row.getCell(idx + 1);
@@ -1487,6 +1473,12 @@ function ttdAddDataRow(ctx: TTDRowContext, linha: ApuracaoLinha, alt: boolean): 
   row.getCell(8).value = linha.cargaEfetiva / 100;
   // Col I: ICMS Recolher (R$) = BC (col D) × carga% (col H) — fórmula
   row.getCell(9).value = { formula: `D${r}*H${r}` };
+  // Col J: Fundos = 0,40% × BC integral (col D)
+  row.getCell(10).value = { formula: `D${r}*0.4/100` };
+  // Col K: Total ICMS + Fundos = ICMS Recolher (I) + Fundos (J)
+  row.getCell(11).value = { formula: `I${r}+J${r}` };
+  // Col L: Processo (PRI...) extraído de infCpl/infAdFisco
+  row.getCell(12).value = linha.processoRef;
 
   for (let c = 1; c <= TTD_NUM_COLS; c++) {
     const cell = row.getCell(c);
@@ -1506,6 +1498,8 @@ function ttdAddDataRow(ctx: TTDRowContext, linha: ApuracaoLinha, alt: boolean): 
   row.getCell(8).numFmt = '0.00%';
   row.getCell(8).alignment = { horizontal: 'right', vertical: 'middle' };
   row.getCell(9).numFmt = brlFormat();
+  row.getCell(10).numFmt = brlFormat();
+  row.getCell(11).numFmt = brlFormat();
 
   // Marca itens com observacao "tem itens em outras cargas" como amarelo claro
   if (linha.temItensOutrasCargas) {
@@ -1531,8 +1525,12 @@ function ttdAddSubtotalRow(ctx: TTDRowContext, label: string, sg: ApuracaoSubgru
   // Col I subtotal: soma das fórmulas de ICMS Recolher, se range disponível
   if (dataStartRow !== undefined && dataEndRow !== undefined && dataEndRow >= dataStartRow) {
     row.getCell(9).value = { formula: `SUM(I${dataStartRow}:I${dataEndRow})` };
+    row.getCell(10).value = { formula: `SUM(J${dataStartRow}:J${dataEndRow})` };
+    row.getCell(11).value = { formula: `SUM(K${dataStartRow}:K${dataEndRow})` };
   } else {
     row.getCell(9).value = '';
+    row.getCell(10).value = '';
+    row.getCell(11).value = '';
   }
 
   for (let c = 1; c <= TTD_NUM_COLS; c++) {
@@ -1546,6 +1544,8 @@ function ttdAddSubtotalRow(ctx: TTDRowContext, label: string, sg: ApuracaoSubgru
   row.getCell(6).numFmt = brlFormat();
   row.getCell(7).numFmt = brlFormat();
   row.getCell(9).numFmt = brlFormat();
+  row.getCell(10).numFmt = brlFormat();
+  row.getCell(11).numFmt = brlFormat();
   row.getCell(1).alignment = { horizontal: 'right', vertical: 'middle', indent: 1 };
   row.height = 18;
   cursor.row++;
@@ -1570,10 +1570,13 @@ function ttdAddSumOfSubtotalsRow(
   row.getCell(8).value = '';
   // Col I: soma pontual das linhas de subtotal (I5+I12+... em vez de SUM(I5:I12))
   if (subtotalRows.length > 0) {
-    const refs = subtotalRows.map(r => `I${r}`).join('+');
-    row.getCell(9).value = { formula: refs };
+    row.getCell(9).value = { formula: subtotalRows.map(r => `I${r}`).join('+') };
+    row.getCell(10).value = { formula: subtotalRows.map(r => `J${r}`).join('+') };
+    row.getCell(11).value = { formula: subtotalRows.map(r => `K${r}`).join('+') };
   } else {
     row.getCell(9).value = '';
+    row.getCell(10).value = '';
+    row.getCell(11).value = '';
   }
 
   for (let c = 1; c <= TTD_NUM_COLS; c++) {
@@ -1587,6 +1590,8 @@ function ttdAddSumOfSubtotalsRow(
   row.getCell(6).numFmt = brlFormat();
   row.getCell(7).numFmt = brlFormat();
   row.getCell(9).numFmt = brlFormat();
+  row.getCell(10).numFmt = brlFormat();
+  row.getCell(11).numFmt = brlFormat();
   row.getCell(1).alignment = { horizontal: 'right', vertical: 'middle', indent: 1 };
   row.height = 18;
   cursor.row++;
@@ -1625,6 +1630,9 @@ export async function exportApuracaoTTD(apuracao: ApuracaoTTDResult): Promise<vo
     { width: 18 },  // G: Cred. Presumido
     { width: 16 },  // H: ICMS Recolher %
     { width: 18 },  // I: ICMS Recolher R$
+    { width: 16 },  // J: Fundos (0,40% x BC)
+    { width: 18 },  // K: Total (ICMS + Fundos)
+    { width: 14 },  // L: Processo (PRI...)
   ];
 
   const ctx: TTDRowContext = { ws, cursor: { row: 1 } };

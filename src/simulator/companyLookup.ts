@@ -1,6 +1,7 @@
 export interface CompanyLookupEntry {
   cnpj: string;
   razaoSocial: string;
+  uf?: string;
 }
 
 function onlyDigits(value: string): string {

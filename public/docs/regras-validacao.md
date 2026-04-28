@@ -1,7 +1,7 @@
-# PRIME NF-e Auditor v2 — Regras de Validação
+# ICMS Auditor v3 — Regras de Validação
 
-> Gerado em: 2026-03-04 | Versão: 2.0
-> Total: **25 regras** + **16 cross-checks** = **41 verificações**
+> Atualizado em: 2026-04-23 | Versão: 3.0
+> Cobertura: 22 cenários (A1–A7, A9, B1–B12) + validações de BC, CP, InfCpl, alíquota, CST, CFOP, vedações e cross-checks.
 
 ---
 
@@ -9,8 +9,18 @@
 
 | Tipo | Valores | Significado |
 |------|---------|-------------|
-| **Regras** | `OK` / `ALERTA` / `ERRO` | Resultado da validação do item |
+| **Regras** | `OK` / `INFO` / `AVISO` / `DIVERGENCIA` / `ERRO` | Resultado da validação do item |
 | **Cross-checks** | `ok` / `atencao` / `divergente` | Severidade de cada verificação complementar |
+
+> Terminologia antiga `ALERTA` foi substituída por `AVISO` na v3. Consulte [`src/types/validation.ts`](../../src/types/validation.ts) para o tipo oficial.
+
+---
+
+## Cenários
+
+- **Série A (interestaduais)**: A1–A7, A9 — A8 (cobre/aço contribuinte) foi desativado na v3 e virou modificador M01 sobre A1.
+- **Série B (internas SC)**: B1–B12.
+- **Referência completa**: [RESUMO-COMPLETO-REGRAS-NEGOCIO.md](../../RESUMO-COMPLETO-REGRAS-NEGOCIO.md).
 
 ---
 
@@ -23,11 +33,11 @@
 | AL00 | OK | Cenário sem alíquota esperada (diferimento/transferência) | `aliquotasAceitas.length === 0` |
 | AL01 | OK | Alíquota conforme cenário | Alíquota confere com `aliquotasAceitas` |
 | AL01 | ERRO | Alíquota diverge do esperado para o cenário | Alíquota diverge + (tem CP ou < 12%) |
-| AL02 | ALERTA | Alíquota aceita mas cross-checks com divergências | Alíquota confere + `hasJustification === false` |
-| AL06 | ALERTA | 4% válido mas opção 10% disponível (mais crédito) | Cenário B3 + alíquota 4% |
-| AL07 | ALERTA | 17% aceita porém justificativa somente por SN | 17% + SN é a única justificativa |
-| AL08 | ALERTA | Alíquota confere mas sem crédito presumido informado | ≥12% + sem CP + `cenario.temCP` + BC não reduzida |
-| AL09 | ALERTA | Alíquota diverge mas sem CP — possível não uso do TTD | Alíquota diverge + ≥12% + sem CP |
+| AL02 | AVISO | Alíquota aceita mas cross-checks com divergências | Alíquota confere + `hasJustification === false` |
+| AL06 | AVISO | 4% válido mas opção 10% disponível (mais crédito) | Cenário B3 + alíquota 4% |
+| AL07 | AVISO | 17% aceita porém justificativa somente por SN | 17% + SN é a única justificativa |
+| AL08 | AVISO | Alíquota confere mas sem crédito presumido informado | ≥12% + sem CP + `cenario.temCP` + BC não reduzida |
+| AL09 | AVISO | Alíquota diverge mas sem CP — possível não uso do TTD | Alíquota diverge + ≥12% + sem CP |
 
 ---
 
@@ -38,7 +48,7 @@
 | Código | Status | Descrição | Condição |
 |--------|--------|-----------|----------|
 | V01 | ERRO | NCM vedada pelo Decreto 2.128 — TTD não pode ser aplicado | NCM ∈ `config.decreto2128` |
-| V01-EXC | ALERTA | NCM no Decreto 2.128 mas operação interna SC sem CP | NCM ∈ decreto2128 + SC×SC + ≥12% + sem CP |
+| V01-EXC | AVISO | NCM no Decreto 2.128 mas operação interna SC sem CP | NCM ∈ decreto2128 + SC×SC + ≥12% + sem CP |
 | V02 | ERRO | TTD vedado para mercadoria usada | CFOP ∈ {5922, 6922} |
 
 ---
@@ -50,9 +60,9 @@
 | Código | Status | Descrição | Condição |
 |--------|--------|-----------|----------|
 | CST01 | OK | CST OK — origem de importador válida | Origem ∈ {1, 6, 7} |
-| CST02 | ALERTA | CST origem inesperada — pode indicar mercadoria nacional | Origem ∉ {1, 6, 7} |
-| CST03 | ALERTA | ST detectada em cenário que não espera ST | Tribut. = 10 + cenário sem ST |
-| CST04 | ALERTA | Redução de BC (CST 20) — verificar se correto | Tribut. = 20 |
+| CST02 | AVISO | CST origem inesperada — pode indicar mercadoria nacional | Origem ∉ {1, 6, 7} |
+| CST03 | AVISO | ST detectada em cenário que não espera ST | Tribut. = 10 + cenário sem ST |
+| CST04 | AVISO | Redução de BC (CST 20) — verificar se correto | Tribut. = 20 |
 
 ---
 
@@ -64,24 +74,48 @@
 |--------|--------|-----------|----------|
 | CF00 | OK | CFOP não validado para este cenário | `cfopsEsperados.length === 0` |
 | CF01 | OK | CFOP conforme cenário | CFOP ∈ `cfopsEsperados` |
-| CF01 | ALERTA | CFOP não é padrão para o cenário | CFOP ∉ lista + não é conta/ordem nem venda |
+| CF01 | AVISO | CFOP não é padrão para o cenário | CFOP ∉ lista + não é conta/ordem nem venda |
 | CF02 | OK | CFOP de conta e ordem — sempre aceito | CFOP termina em 49 |
 | CF03 | OK | CFOP de venda — aceito | CFOP termina em 02 |
 
 ---
 
-## 5. Regras de Fluxo (I/C)
+## 5. Regras de Base de Cálculo (BC)
+
+**Arquivo:** `src/engine/bcValidation.ts`
+
+Valida se `vBC` confere com `vProd + vFrete + vSeg + vOutro - vDesc` (respeitando redução de BC quando aplicável). Divergências são sinalizadas como `DIVERGENCIA` ou `AVISO`.
+
+---
+
+## 6. Regras de Crédito Presumido (CP)
+
+**Arquivo:** `src/engine/cpValidation.ts`
+
+Recalcula o CP esperado para o cenário (alíquota, carga efetiva, fundos) e compara com o efetivamente informado na NF-e/escrituração. Divergências `> 0.01` viram `DIVERGENCIA`.
+
+---
+
+## 7. Regras de InfCpl
+
+**Arquivo:** `src/engine/infCplValidation.ts`
+
+Valida o texto livre em `infCpl`: menção ao TTD 410, CST declarado, valores de BC e CP. Inconsistências textuais viram `AVISO`; ausência de TTD em operação que deveria aplicá-lo vira `DIVERGENCIA`.
+
+---
+
+## 8. Regras de Fluxo (I/C)
 
 **Arquivo:** `src/engine/validator.ts`
 
 | Código | Status | Descrição | Condição |
 |--------|--------|-----------|----------|
-| I09 | ALERTA | Devolução detectada — estornar CP (item 1.20), creditar fundos via DCIP 54 | Cenário = DEVOLUÇÃO |
-| C-UNK | ALERTA | Cenário não identificado — verificar manualmente | Nenhum cenário classificado |
+| I09 | AVISO | Devolução detectada — estornar CP (item 1.20), creditar fundos via DCIP 54 | Cenário = DEVOLUÇÃO |
+| C-UNK | AVISO | Cenário não identificado — verificar manualmente | Nenhum cenário classificado |
 
 ---
 
-## 6. Cross-Checks: Alíquota 12% (CK12)
+## 9. Cross-Checks: Alíquota 12% (CK12)
 
 **Lógica:** OR entre CK12A/B/C (basta 1 passar) + AND em CK12D (obrigatória)
 
@@ -94,7 +128,7 @@
 
 ---
 
-## 7. Cross-Checks: Alíquota 10% (CK10)
+## 10. Cross-Checks: Alíquota 10% (CK10)
 
 **Lógica:** AND obrigatórias + OR para industrial no cenário B3
 
@@ -108,7 +142,7 @@
 
 ---
 
-## 8. Cross-Checks: Alíquota 4% (CK04)
+## 11. Cross-Checks: Alíquota 4% (CK04)
 
 **Lógica:** Todas AND (obrigatórias)
 
@@ -120,7 +154,7 @@
 
 ---
 
-## 9. Cross-Checks: Alíquota 17% (CK17)
+## 12. Cross-Checks: Alíquota 17% (CK17)
 
 **Lógica:** OR (precisa ao menos 1 justificativa). SN sozinho = justificativa fraca (AL07)
 
@@ -151,7 +185,7 @@ Item XML
   ├─► Vedações (V01, V01-EXC, V02)
   │     └─ Se ERRO → VEDADO (para aqui)
   │
-  ├─► Classificação do Cenário (A1–A9, B1–B12)
+  ├─► Classificação do Cenário (A1–A7, A9, B1–B12)
   │     └─ Se não encontrado → C-UNK / I09 (devolução)
   │
   ├─► Validação de Alíquota (AL00–AL09)
@@ -159,5 +193,11 @@ Item XML
   │
   ├─► Validação de CST (CST01–CST04)
   │
-  └─► Validação de CFOP (CF00–CF03)
+  ├─► Validação de CFOP (CF00–CF03)
+  │
+  ├─► Validação de BC (bcValidation)
+  │
+  ├─► Validação de CP (cpValidation)
+  │
+  └─► Validação de InfCpl (infCplValidation)
 ```

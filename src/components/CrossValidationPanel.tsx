@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CheckCircle2, AlertTriangle, XCircle, FileSearch, Upload } from 'lucide-react';
 import { DropZone } from './DropZone';
+import { PageHeader } from './layout/PageHeader';
 import { formatCurrency } from '@/utils/formatters';
 import type { CrossValidationResult, NfCrossMatch, MatchStatus } from '@/types/crossValidation';
 import type { EfdData } from '@/types/efd';
@@ -43,10 +44,11 @@ export function CrossValidationPanel({ crossValidation, efdData, efdParseError, 
   if (!efdData && !crossValidation) {
     return (
       <div className="space-y-4">
-        <div className="mb-4">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-heading text-foreground">Validacao EFD</h2>
-          <p className="text-muted-foreground mt-1 text-sm">Validacao cruzada entre XMLs de NF-e e EFD/SPED Fiscal.</p>
-        </div>
+        <PageHeader
+          title="Validação EFD"
+          breadcrumb={<span>Validação cruzada entre XMLs de NF-e e EFD/SPED Fiscal.</span>}
+          className="mb-4"
+        />
 
         <Card>
           <CardContent className="py-12">
@@ -74,10 +76,11 @@ export function CrossValidationPanel({ crossValidation, efdData, efdParseError, 
   if (efdData && rawNfes.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="mb-4">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-heading text-foreground">Validacao EFD</h2>
-          <p className="text-muted-foreground mt-1 text-sm">Validacao cruzada entre XMLs de NF-e e EFD/SPED Fiscal.</p>
-        </div>
+        <PageHeader
+          title="Validação EFD"
+          breadcrumb={<span>Validação cruzada entre XMLs de NF-e e EFD/SPED Fiscal.</span>}
+          className="mb-4"
+        />
 
         <EfdSummaryCard efdData={efdData} />
 
@@ -99,9 +102,7 @@ export function CrossValidationPanel({ crossValidation, efdData, efdParseError, 
   if (efdParseError) {
     return (
       <div className="space-y-4">
-        <div className="mb-4">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-heading text-foreground">Validacao EFD</h2>
-        </div>
+        <PageHeader title="Validação EFD" className="mb-4" />
         <Card className="border-red-200">
           <CardContent className="py-6">
             <div className="flex items-start gap-3">
@@ -123,22 +124,20 @@ export function CrossValidationPanel({ crossValidation, efdData, efdParseError, 
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-heading text-foreground">Validacao EFD</h2>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Competencia {cv.competencia} — Validacao cruzada XMLs x EFD/SPED Fiscal
-          </p>
-        </div>
-        <Badge variant={cv.isConsistent ? 'default' : 'destructive'} className="text-sm px-3 py-1">
-          {cv.isConsistent ? (
-            <><CheckCircle2 size={14} className="mr-1" /> Convergente</>
-          ) : (
-            <><AlertTriangle size={14} className="mr-1" /> Divergencias</>
-          )}
-        </Badge>
-      </div>
+      <PageHeader
+        title="Validação EFD"
+        breadcrumb={<span>Competência {cv.competencia} — Validação cruzada XMLs × EFD/SPED Fiscal</span>}
+        actions={
+          <Badge variant={cv.isConsistent ? 'default' : 'destructive'} className="text-sm px-3 py-1">
+            {cv.isConsistent ? (
+              <><CheckCircle2 size={14} className="mr-1" /> Convergente</>
+            ) : (
+              <><AlertTriangle size={14} className="mr-1" /> Divergências</>
+            )}
+          </Badge>
+        }
+        className="mb-4"
+      />
 
       {/* EFD Info */}
       {efdData && <EfdSummaryCard efdData={efdData} />}

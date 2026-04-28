@@ -41,10 +41,11 @@ export function DiscrepancyPanel({ item, nfe, cnpjInfoMap, regras }: Discrepancy
   const cfopResult = item.resultados.find(r => r.regra.startsWith('CF'));
 
   const aliqEsperada = cenario ? cenario.aliquotasAceitas.map(a => `${a}%`).join(' / ') : '-';
-  const cstOrigEsperado = '1 / 6 / 7';
+  const cstOrigEsperado = cenario?.isCAMEX ? '6 / 7' : '1 / 6 / 7';
   const cfopEsperado = cenario ? cenario.cfopsEsperados.join(' / ') : '-';
 
   const nonOkResults = item.resultados.filter(r => r.status !== 'OK' && r.status !== 'INFO');
+  const infoResults = item.resultados.filter(r => r.status === 'INFO');
   const hasCP = !!item.item.cCredPresumido;
   const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -90,6 +91,37 @@ export function DiscrepancyPanel({ item, nfe, cnpjInfoMap, regras }: Discrepancy
           <span className="text-slate-500">Cenario</span>
           <span className="font-bold text-primary">{item.cenario} <span className="font-normal text-slate-500">{cenarioNome}</span></span>
         </div>
+
+        {/* Motivo — badges compactos com tooltip para mensagem completa */}
+        {(nonOkResults.length > 0 || infoResults.length > 0) && (
+          <div className="flex flex-wrap gap-1">
+            {nonOkResults.map((r, idx) => (
+              <span
+                key={`nok-${idx}`}
+                title={r.mensagem}
+                className={cn(
+                  'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium cursor-help max-w-full',
+                  r.status === 'ERRO' ? 'bg-red-100 text-red-800' :
+                  r.status === 'DIVERGENCIA' ? 'bg-orange-100 text-orange-800' :
+                  'bg-amber-100 text-amber-800',
+                )}
+              >
+                <span className="font-mono font-bold shrink-0">{r.regra}</span>
+                <span className="truncate">{r.mensagem}</span>
+              </span>
+            ))}
+            {infoResults.map((r, idx) => (
+              <span
+                key={`info-${idx}`}
+                title={r.mensagem}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium cursor-help max-w-full bg-sky-100 text-sky-800"
+              >
+                <span className="font-mono font-bold shrink-0">{r.regra}</span>
+                <span className="truncate">{r.mensagem}</span>
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Rate comparison */}
         <div>
@@ -140,20 +172,6 @@ export function DiscrepancyPanel({ item, nfe, cnpjInfoMap, regras }: Discrepancy
           <div className="bg-red-50 p-2 rounded border border-red-100 flex justify-between items-center">
             <span className="text-red-800">Gap Financeiro</span>
             <span className="text-sm font-bold tabular-nums text-red-700">{fmtBRL(gap)}</span>
-          </div>
-        )}
-
-        {/* Validation messages */}
-        {nonOkResults.length > 0 && (
-          <div>
-            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Validacoes</label>
-            <div className="space-y-0.5">
-              {nonOkResults.map((r, idx) => (
-                <div key={idx} className={cn('text-[10px]', r.status === 'ERRO' ? 'text-red-700' : r.status === 'DIVERGENCIA' ? 'text-orange-700' : 'text-amber-700')}>
-                  <span className="font-mono font-bold">[{r.regra}]</span> {r.mensagem}
-                </div>
-              ))}
-            </div>
           </div>
         )}
 

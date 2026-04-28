@@ -3,6 +3,7 @@ import {
   AlertTriangle, ChevronDown, ChevronRight, Tag, Loader2,
   CheckCircle2, FileSpreadsheet,
 } from 'lucide-react';
+import { PageHeader } from './layout/PageHeader.tsx';
 import type { NfeValidation } from '../types/validation.ts';
 import type { RegrasConfig } from '../types/regras.ts';
 import type { AppConfig } from '../types/config.ts';
@@ -26,7 +27,6 @@ import {
   removeOverrideFromMap,
   camexParKey,
 } from '../firebase/camexOverrideService.ts';
-import { exportApuracaoTTD } from '../utils/exportExcel.ts';
 import { formatCurrency } from '../utils/formatters.ts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -190,6 +190,7 @@ export function ApuracaoTTDPage({ results, regras, config }: ApuracaoTTDPageProp
   const handleExport = async () => {
     setExportando(true);
     try {
+      const { exportApuracaoTTD } = await import('../utils/exportExcel.ts');
       await exportApuracaoTTD(apuracao);
     } catch (err) {
       console.error('[exportApuracaoTTD] erro:', err);
@@ -212,35 +213,33 @@ export function ApuracaoTTDPage({ results, regras, config }: ApuracaoTTDPageProp
 
   return (
     <div className="space-y-2.5">
-      {/* Header */}
-      <div className="flex items-end justify-between mb-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight font-heading text-foreground">Apuracao TTD</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Espelha o "Relatorio da Apuracao dos Creditos por Regime Especial" da contabilidade
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {periodosDisponiveis.length > 0 && (
-            <Select value={periodoSelecionado} onValueChange={setPeriodoSelecionado}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Periodo" />
-              </SelectTrigger>
-              <SelectContent>
-                {periodosDisponiveis.map(p => (
-                  <SelectItem key={p} value={p}>{p}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Button onClick={handleExport} disabled={exportando} className="gap-2">
-            {exportando
-              ? <Loader2 size={14} className="animate-spin" />
-              : <FileSpreadsheet size={14} />}
-            Exportar Excel
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Apuração TTD"
+        breadcrumb={<span>Espelha o "Relatorio da Apuracao dos Creditos por Regime Especial" da contabilidade</span>}
+        actions={
+          <>
+            {periodosDisponiveis.length > 0 && (
+              <Select value={periodoSelecionado} onValueChange={setPeriodoSelecionado}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Periodo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {periodosDisponiveis.map(p => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button onClick={handleExport} disabled={exportando} className="gap-2">
+              {exportando
+                ? <Loader2 size={14} className="animate-spin" />
+                : <FileSpreadsheet size={14} />}
+              Exportar Excel
+            </Button>
+          </>
+        }
+        className="mb-4"
+      />
 
       {overridesLoading && (
         <div className="text-xs text-muted-foreground flex items-center gap-2">
@@ -491,6 +490,30 @@ interface SubgrupoTableProps {
   removerOverrideNF: (chaveAcesso: string) => void;
 }
 
+const APURACAO_COL_WIDTHS = [
+  '32px',   // checkbox
+  '86px',   // data
+  '104px',  // documento
+  '210px',  // destinatario
+  '116px',  // valor contabil
+  '116px',  // bc integral
+  '60px',   // aliq
+  '116px',  // vICMS
+  '104px',  // CP
+  '140px',  // origem
+  '96px',   // processo
+];
+
+function ApuracaoColgroup() {
+  return (
+    <colgroup>
+      {APURACAO_COL_WIDTHS.map((w, i) => (
+        <col key={i} style={{ width: w }} />
+      ))}
+    </colgroup>
+  );
+}
+
 function SubgrupoTable({ subgrupo, isCAMEXBlock, selecionadas, toggleSelecao, removerOverrideNF }: SubgrupoTableProps) {
   return (
     <div className="mb-3">
@@ -498,7 +521,8 @@ function SubgrupoTable({ subgrupo, isCAMEXBlock, selecionadas, toggleSelecao, re
         {subgrupo.reducaoBC === 'sem_reducao' ? 'Sem reducao de BC' : 'Com reducao de BC'}
       </div>
       <div className="overflow-x-auto">
-        <Table className="text-xs">
+        <Table className="text-xs table-fixed">
+          <ApuracaoColgroup />
           <TableHeader>
             <TableRow className="bg-muted">
               <TableHead className="w-8 px-2 py-2"></TableHead>
@@ -511,6 +535,7 @@ function SubgrupoTable({ subgrupo, isCAMEXBlock, selecionadas, toggleSelecao, re
               <TableHead className="text-right px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">vICMS</TableHead>
               <TableHead className="text-right px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">CP</TableHead>
               <TableHead className="text-left px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Origem</TableHead>
+              <TableHead className="text-left px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Processo</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y divide-border">
@@ -537,7 +562,7 @@ function SubgrupoTable({ subgrupo, isCAMEXBlock, selecionadas, toggleSelecao, re
                       />
                     )}
                   </TableCell>
-                  <TableCell className="px-3 py-1.5 max-w-[200px] truncate" title={linha.destNome}>{linha.destNome}</TableCell>
+                  <TableCell className="px-3 py-1.5 truncate" title={linha.destNome}>{linha.destNome}</TableCell>
                   <TableCell className="px-3 py-1.5 text-right font-mono tabular-nums">{formatCurrency(linha.vNF)}</TableCell>
                   <TableCell className="px-3 py-1.5 text-right font-mono tabular-nums">{formatCurrency(linha.bcIntegral)}</TableCell>
                   <TableCell className="px-3 py-1.5 text-right font-mono">{linha.pICMS}%</TableCell>
@@ -560,6 +585,9 @@ function SubgrupoTable({ subgrupo, isCAMEXBlock, selecionadas, toggleSelecao, re
                       </span>
                     )}
                   </TableCell>
+                  <TableCell className="px-3 py-1.5 font-mono text-[11px] text-muted-foreground">
+                    {linha.processoRef}
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -572,6 +600,7 @@ function SubgrupoTable({ subgrupo, isCAMEXBlock, selecionadas, toggleSelecao, re
               <TableCell className="px-3 py-1.5"></TableCell>
               <TableCell className="px-3 py-1.5 text-right font-mono tabular-nums">{formatCurrency(subgrupo.totalVICMS)}</TableCell>
               <TableCell className="px-3 py-1.5 text-right font-mono tabular-nums">{formatCurrency(subgrupo.totalCP)}</TableCell>
+              <TableCell></TableCell>
               <TableCell></TableCell>
             </TableRow>
           </TableFooter>

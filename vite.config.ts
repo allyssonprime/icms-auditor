@@ -43,4 +43,17 @@ export default defineConfig({
   define: {
     __BUILD_TIMESTAMP__: JSON.stringify(new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (id.includes('/firebase/') || id.includes('@firebase/')) return 'firebase-vendor';
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) return 'react-vendor';
+          if (id.includes('@radix-ui/')) return 'radix-vendor';
+          if (id.includes('/lucide-react/')) return 'icons-vendor';
+        },
+      },
+    },
+  },
 })

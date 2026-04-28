@@ -40,16 +40,16 @@ describe('validarCreditoPresumido', () => {
     });
   });
 
-  describe('CP02 — CP presente, não esperado', () => {
-    it('emite AVISO quando cenário tem temCP=false mas XML traz cCredPresumido', () => {
+  describe('CP02 — CP presente, não esperado (ERRO)', () => {
+    it('emite ERRO quando cenário tem temCP=false mas XML traz cCredPresumido', () => {
       const item = makeItem({
         pICMS: 17, vBC: 1000, vICMS: 170,
-        cCredPresumido: 'CP999', pCredPresumido: 10, vCredPresumido: 100,
+        cCredPresumido: 'SC850065', pCredPresumido: 10, vCredPresumido: 100,
       });
       const results = validarCreditoPresumido(item, CENARIO_SEM_CP);
       const cp02 = results.find(r => r.regra === 'CP02');
       expect(cp02).toBeDefined();
-      expect(cp02?.status).toBe('AVISO');
+      expect(cp02?.status).toBe('ERRO');
     });
 
     it('não emite CP01 quando o cenário não espera CP', () => {
@@ -59,11 +59,46 @@ describe('validarCreditoPresumido', () => {
     });
   });
 
-  describe('caso limpo', () => {
-    it('não emite nenhum resultado quando tudo bate (aliq 4%, CP 3%, valor consistente)', () => {
+  describe('CP03 — código CP diferente do esperado', () => {
+    it('emite AVISO quando cCredPresumido ≠ SC850065 em cenário com CP', () => {
       const item = makeItem({
         pICMS: 4, vBC: 1000, vICMS: 40,
-        cCredPresumido: 'CP123', pCredPresumido: 3, vCredPresumido: 30,
+        cCredPresumido: 'SC999999', pCredPresumido: 3, vCredPresumido: 30,
+      });
+      const results = validarCreditoPresumido(item, CENARIO_COM_CP);
+      const cp03 = results.find(r => r.regra === 'CP03');
+      expect(cp03).toBeDefined();
+      expect(cp03?.status).toBe('AVISO');
+      expect(cp03?.mensagem).toContain('SC999999');
+      expect(cp03?.mensagem).toContain('SC850065');
+    });
+
+    it('NÃO emite CP03 quando cCredPresumido = SC850065', () => {
+      const item = makeItem({
+        pICMS: 4, vBC: 1000, vICMS: 40,
+        cCredPresumido: 'SC850065', pCredPresumido: 3, vCredPresumido: 30,
+      });
+      const results = validarCreditoPresumido(item, CENARIO_COM_CP);
+      expect(results.some(r => r.regra === 'CP03')).toBe(false);
+    });
+
+    it('NÃO emite CP03 em cenário sem CP (CP02 já trata)', () => {
+      const item = makeItem({
+        pICMS: 17, vBC: 1000, vICMS: 170,
+        cCredPresumido: 'SC999999',
+      });
+      const results = validarCreditoPresumido(item, CENARIO_SEM_CP);
+      expect(results.some(r => r.regra === 'CP03')).toBe(false);
+      // CP02 deve disparar ERRO
+      expect(results.some(r => r.regra === 'CP02' && r.status === 'ERRO')).toBe(true);
+    });
+  });
+
+  describe('caso limpo', () => {
+    it('não emite nenhum resultado quando tudo bate (aliq 4%, CP=SC850065)', () => {
+      const item = makeItem({
+        pICMS: 4, vBC: 1000, vICMS: 40,
+        cCredPresumido: 'SC850065', pCredPresumido: 3, vCredPresumido: 30,
       });
       const results = validarCreditoPresumido(item, CENARIO_COM_CP);
       expect(results).toHaveLength(0);
